@@ -45,7 +45,7 @@ export const languageOptions = [
     id: 'go',
     name: 'Go',
     value: 'go',
-    version: '1.19.2',
+    version: '1.16.2',
     extension: 'go',
   },
   {
@@ -59,7 +59,7 @@ export const languageOptions = [
     id: 'ruby',
     name: 'Ruby',
     value: 'ruby',
-    version: '3.2.1',
+    version: '3.0.1',
     extension: 'rb',
   },
   {

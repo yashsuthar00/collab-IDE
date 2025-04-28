@@ -24,9 +24,9 @@ const languageVersions = {
   cpp: '10.2.0',
   c: '10.2.0',
   typescript: '5.0.3',
-  go: '1.19.2',
+  go: '1.16.2',
   rust: '1.68.2',
-  ruby: '3.2.1',
+  ruby: '3.0.1',
   php: '8.2.3'
 };
 

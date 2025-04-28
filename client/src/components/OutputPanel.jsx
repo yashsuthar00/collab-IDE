@@ -1,12 +1,27 @@
-import { useState } from 'react';
 import { Terminal, MessageSquare } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
-function OutputPanel({ output, input, setInput, loading, error }) {
-  const [activeTab, setActiveTab] = useState('output');
-  
+function OutputPanel({ output, input, setInput, loading, error, activeTab, setActiveTab }) {
+  const textareaRef = useRef(null);
+
+  // Handle textarea resize for better mobile experience
+  const handleTextareaResize = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  };
+
+  // Auto-resize textarea when input changes
+  useEffect(() => {
+    if (activeTab === 'input' && textareaRef.current) {
+      handleTextareaResize();
+    }
+  }, [input, activeTab]);
+
   return (
-    <div className="h-full flex flex-col">
-      <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+    <div className="output-panel h-full flex flex-col">
+      <div className="output-panel-tabs border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="flex">
           <button
             onClick={() => setActiveTab('output')}
@@ -15,9 +30,11 @@ function OutputPanel({ output, input, setInput, loading, error }) {
                 ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
+            aria-selected={activeTab === 'output'}
+            role="tab"
           >
             <Terminal className="w-4 h-4 mr-2" />
-            Output
+            <span>Output</span>
           </button>
           <button
             onClick={() => setActiveTab('input')}
@@ -26,50 +43,54 @@ function OutputPanel({ output, input, setInput, loading, error }) {
                 ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
+            aria-selected={activeTab === 'input'}
+            role="tab"
           >
             <MessageSquare className="w-4 h-4 mr-2" />
-            Input
+            <span>Input</span>
           </button>
         </div>
       </div>
       
-      <div className="flex-1 p-4 overflow-auto bg-white dark:bg-gray-800">
+      <div className="output-panel-content flex-1 p-2 md:p-4 overflow-auto bg-white dark:bg-gray-800">
         {activeTab === 'output' ? (
-          <div className="h-full">
+          <div className="h-full output-panel-output">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-10 w-10 border-2 border-t-transparent border-blue-500"></div>
-                <p className="mt-4 text-gray-500 dark:text-gray-400">Executing code...</p>
+                <div className="animate-spin rounded-full h-8 w-8 md:h-10 md:w-10 border-2 border-t-transparent border-blue-500 dark:border-blue-400"></div>
+                <p className="mt-3 text-sm md:text-base text-gray-500 dark:text-gray-400">Executing code...</p>
               </div>
             ) : error ? (
-              <div className="font-mono text-sm whitespace-pre-wrap p-4 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 h-full overflow-auto">
+              <div className="font-mono text-xs md:text-sm whitespace-pre-wrap p-3 md:p-4 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 h-full overflow-auto">
                 <div className="font-semibold text-red-600 dark:text-red-400 mb-2">Error:</div>
-                <pre className="whitespace-pre-wrap break-words text-red-500">{error}</pre>
+                <pre className="whitespace-pre-wrap break-words text-red-500 dark:text-red-400">{error}</pre>
               </div>
             ) : output ? (
-              <div className="font-mono text-sm whitespace-pre-wrap p-4 rounded-md bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 h-full overflow-auto">
+              <div className="font-mono text-xs md:text-sm whitespace-pre-wrap p-3 md:p-4 rounded-md bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 h-full overflow-auto text-gray-800 dark:text-gray-200">
                 {output.error ? (
                   <span className="text-red-500">{output.error}</span>
                 ) : (
                   <>
-                    <div className="mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
-                      <span className="font-semibold text-green-600 dark:text-green-400">Exit Status:</span> {output.status || 0}
-                      {output.time && (
-                        <span className="ml-4 text-gray-500 dark:text-gray-400">
-                          Execution time: {output.time}ms
-                        </span>
-                      )}
-                    </div>
-                    {output.stdout && (
+                    {output.stderr ? (
                       <div className="mb-4">
-                        <div className="font-semibold text-blue-600 dark:text-blue-400 mb-2">Output:</div>
-                        <pre className="bg-white dark:bg-gray-900 p-3 rounded-md border border-gray-200 dark:border-gray-700">{output.stdout}</pre>
+                        <div className="font-semibold text-red-600 dark:text-red-400 mb-2">Error Output:</div>
+                        <pre className="bg-red-50 dark:bg-red-900/20 p-2 md:p-3 rounded-md border border-red-200 dark:border-red-800/30 text-red-500 text-xs md:text-sm">{output.stderr}</pre>
+                      </div>
+                    ) : null}
+                    
+                    {output.stdout ? (
+                      <div className="mb-4">
+                        <pre className="bg-white dark:bg-gray-900 p-2 md:p-3 rounded-md border border-gray-200 dark:border-gray-700 text-xs md:text-sm">{output.stdout}</pre>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-500 dark:text-gray-400 py-4">
+                        Program executed successfully with no output.
                       </div>
                     )}
-                    {output.stderr && (
-                      <div>
-                        <div className="font-semibold text-red-600 dark:text-red-400 mb-2">Error Output:</div>
-                        <pre className="bg-red-50 dark:bg-red-900/20 p-3 rounded-md border border-red-200 dark:border-red-800/30 text-red-500">{output.stderr}</pre>
+                    
+                    {output.time && (
+                      <div className="text-right text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Executed in {output.time}ms
                       </div>
                     )}
                   </>
@@ -77,19 +98,28 @@ function OutputPanel({ output, input, setInput, loading, error }) {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full">
-                <Terminal className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-2" />
-                <p className="text-gray-500 dark:text-gray-400">Run your code to see output here</p>
+                <Terminal className="w-8 h-8 md:w-12 md:h-12 text-gray-300 dark:text-gray-600 mb-2" />
+                <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Run your code to see output here</p>
               </div>
             )}
           </div>
         ) : (
-          <div className="h-full">
+          <div className="h-full output-panel-input">
             <textarea
+              ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onFocus={handleTextareaResize}
               placeholder="Enter program input here..."
-              className="w-full h-full p-4 font-mono text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full h-full p-3 md:p-4 font-mono text-xs md:text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none text-gray-800 dark:text-gray-200"
+              spellCheck="false"
+              autoCapitalize="none"
+              autoComplete="off"
+              autoCorrect="off"
             />
+            <div className="mt-2 mb-1 text-xs text-gray-500 dark:text-gray-400 text-center md:hidden">
+              Tap Run button to execute code
+            </div>
           </div>
         )}
       </div>

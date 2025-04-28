@@ -1,38 +1,108 @@
-import { Sun, Moon, Play, Code, Laptop } from 'lucide-react';
+import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
-function Navbar({ language, setLanguage, languageOptions, onRunCode, theme, toggleTheme, isLoading }) {
+function Navbar({ 
+  language, 
+  setLanguage, 
+  languageOptions, 
+  onRunCode, 
+  theme, 
+  toggleTheme, 
+  autoSave, 
+  toggleAutoSave, 
+  isLoading,
+  mobileView,
+  toggleMobileView
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  
+  const handleLanguageChange = (e) => {
+    const selectedLanguage = languageOptions.find(lang => lang.id === e.target.value);
+    if (selectedLanguage) {
+      setLanguage(selectedLanguage);
+      // Close menu on mobile when language is changed
+      setMenuOpen(false);
+    }
+  };
+
+  const toggleMenu = () => {
+    setMenuOpen(!menuOpen);
+  };
+
+  const handleRunClick = () => {
+    onRunCode();
+    // If run button is clicked on mobile and in code view, switch to output view
+    if (window.innerWidth < 768 && mobileView === 'code') {
+      toggleMobileView();
+    }
+    // Close menu
+    setMenuOpen(false);
+  };
+
+  // Re-render when theme changes to ensure UI updates
+  useEffect(() => {
+    // Force re-render on theme change
+  }, [theme]);
+
   return (
-    <nav className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 px-4 shadow-sm">
+    <nav className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 px-4 shadow-sm">
       <div className="container mx-auto flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center space-x-2 text-xl font-bold text-blue-600 dark:text-blue-400">
-          <Code className="w-6 h-6" />
-          <span>Collab IDE</span>
-        </div>
-
-        {/* Language Selector */}
+        {/* Logo and Mobile Menu Button */}
         <div className="flex items-center">
-          <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
-          <select
-            value={language.id}
-            onChange={(e) => setLanguage(languageOptions.find(lang => lang.id === e.target.value))}
-            className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block w-40 p-2"
+          <div className="flex items-center space-x-2 text-xl font-bold text-blue-600 dark:text-blue-400">
+            <Code className="w-6 h-6" />
+            <span className="hidden sm:inline">Collab IDE</span>
+            <span className="sm:hidden">IDE</span>
+          </div>
+          
+          {/* Mobile Menu Button */}
+          <button 
+            className="ml-4 p-1 rounded-md md:hidden hover:bg-gray-100 dark:hover:bg-gray-800"
+            onClick={toggleMenu}
           >
-            {languageOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
+            {menuOpen ? <X size={20} /> : <MenuIcon size={20} />}
+          </button>
         </div>
 
-        {/* Right section: Theme toggle and Run button */}
-        <div className="flex items-center space-x-3">
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-4">
+          {/* Language Selector */}
+          <div className="flex items-center">
+            <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
+            <select
+              value={language.id}
+              onChange={handleLanguageChange}
+              className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block w-40 p-2"
+            >
+              {languageOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Auto-save Toggle */}
+          <button
+            onClick={toggleAutoSave}
+            className={`flex items-center px-3 py-1.5 rounded-md text-sm border ${
+              autoSave 
+                ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300' 
+                : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+            } hover:bg-opacity-80 transition-colors`}
+            aria-label={autoSave ? "Disable auto-save" : "Enable auto-save"}
+            title={autoSave ? "Your code will be saved automatically" : "Your code will not persist after refresh"}
+          >
+            <Save className={`w-4 h-4 mr-1 ${autoSave ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+            {autoSave ? 'Auto-save On' : 'Auto-save Off'}
+          </button>
+          
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            aria-label="Toggle theme"
+            aria-label={theme === 'dark' ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === 'dark' ? "Switch to light mode" : "Switch to dark mode"}
           >
             {theme === 'dark' ? 
               <Sun className="w-5 h-5 text-yellow-400" /> : 
@@ -45,6 +115,7 @@ function Navbar({ language, setLanguage, languageOptions, onRunCode, theme, togg
             onClick={onRunCode}
             disabled={isLoading}
             className={`px-4 py-2 rounded-md flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+            title="Run code (Ctrl+Enter)"
           >
             {isLoading ? (
               <>
@@ -55,8 +126,74 @@ function Navbar({ language, setLanguage, languageOptions, onRunCode, theme, togg
               <>
                 <Play className="w-4 h-4" />
                 <span>Run</span>
+                <span className="text-xs opacity-75 hidden lg:inline ml-1">(Ctrl+Enter)</span>
               </>
             )}
+          </button>
+        </div>
+
+        {/* Mobile Run Button (always visible) */}
+        <button
+          onClick={handleRunClick}
+          disabled={isLoading}
+          className={`md:hidden px-3 py-1.5 rounded-md flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+          title="Run code"
+        >
+          {isLoading ? (
+            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+          ) : (
+            <Play className="w-4 h-4" />
+          )}
+        </button>
+      </div>
+
+      {/* Mobile Menu Dropdown */}
+      <div className={`md:hidden ${menuOpen ? 'block' : 'hidden'} pt-3 pb-2 space-y-3`}>
+        {/* Mobile Language Selector */}
+        <div className="flex items-center p-2">
+          <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
+          <select
+            value={language.id}
+            onChange={handleLanguageChange}
+            className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 flex-1 p-2"
+          >
+            {languageOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Mobile Theme and Auto-save */}
+        <div className="flex px-2 space-x-2">
+          <button
+            onClick={toggleTheme}
+            className="flex-1 p-2 rounded-md flex justify-center items-center space-x-2 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            {theme === 'dark' ? (
+              <>
+                <Sun className="w-4 h-4 text-yellow-400 mr-1" />
+                <span className="text-sm">Light Mode</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-4 h-4 text-gray-700 mr-1" />
+                <span className="text-sm">Dark Mode</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={toggleAutoSave}
+            className={`flex-1 p-2 rounded-md flex justify-center items-center space-x-1 border ${
+              autoSave 
+                ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300' 
+                : 'border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Save className={`w-4 h-4 mr-1 ${autoSave ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+            <span className="text-sm">{autoSave ? 'Auto-save On' : 'Auto-save Off'}</span>
           </button>
         </div>
       </div>

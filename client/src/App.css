@@ -2,6 +2,37 @@
   height: 100%;
 }
 
+/* Animation for mobile panel transitions */
+.slide-in-left {
+  animation: slide-in-left 0.3s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
+}
+
+.slide-in-right {
+  animation: slide-in-right 0.3s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
+}
+
+@keyframes slide-in-left {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
@@ -19,4 +50,75 @@
   transition-property: color, background-color, border-color;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
+}
+
+/* Mobile swipe hint animation */
+.swipe-hint {
+  animation: swipe-hint 1.5s ease-in-out infinite;
+}
+
+@keyframes swipe-hint {
+  0% {
+    transform: translateX(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateX(10px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 0.7;
+  }
+}
+
+/* Special characters bar styles */
+.special-chars-button {
+  transition: transform 0.1s ease;
+}
+
+.special-chars-button:active {
+  transform: scale(0.95);
+}
+
+/* Ensure Mobile keyboard doesn't push content */
+@supports (-webkit-touch-callout: none) {
+  .ios-height-fix {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Responsive font sizes */
+@media (max-width: 768px) {
+  .mobile-text-sm {
+    font-size: 0.875rem;
+  }
+  .mobile-text-xs {
+    font-size: 0.75rem;
+  }
+}
+
+/* Explicit dark mode overrides for various components */
+body[data-theme="dark"] {
+  background-color: #1a1b26;
+  color: #e6e6e6;
+}
+
+body[data-theme="dark"] .navbar-component,
+body[data-theme="dark"] .output-panel-tabs {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+}
+
+body[data-theme="dark"] .output-panel-content {
+  background-color: #1a1b26 !important;
+  color: #e6e6e6 !important;
+}
+
+body[data-theme="dark"] textarea,
+body[data-theme="dark"] select,
+body[data-theme="dark"] input {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+  color: #e6e6e6 !important;
 }
