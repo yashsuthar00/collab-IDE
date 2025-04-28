@@ -1,12 +1,10 @@
 import axios from 'axios';
 import { io } from 'socket.io-client';
-import dotenv from 'dotenv';
-dotenv.config();
 
 // Determine base URL based on environment
 const getBaseUrl = () => {
-  if (import.meta.env.PROD || process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || 'https://api.collab-ide.com'; // Replace with your production API URL
+  if (import.meta.env.PROD || import.meta.env.VITE_NODE_ENV === 'production') {
+    return import.meta.env.VITE_REACT_APP_API_URL || 'https://api.collab-ide.com'; // Replace with your production API URL
   }
   return 'http://localhost:5000'; // Default development URL
 };
@@ -77,7 +75,7 @@ let socket = null;
 
 export const initializeSocket = () => {
   const socketUrl = import.meta.env.PROD 
-    ? process.env.REACT_APP_SOCKET_URL || 'wss://api.collab-ide.com'
+    ? import.meta.env.VITE_REACT_APP_SOCKET_URL || 'wss://api.collab-ide.com'
     : 'ws://localhost:5000';
     
   socket = io(socketUrl, {
