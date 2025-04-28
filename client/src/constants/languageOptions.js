@@ -1,0 +1,72 @@
+export const languageOptions = [
+  {
+    id: 'javascript',
+    name: 'JavaScript',
+    value: 'javascript',
+    version: '18.15.0',
+    extension: 'js',
+  },
+  {
+    id: 'python',
+    name: 'Python',
+    value: 'python',
+    version: '3.10.0',
+    extension: 'py',
+  },
+  {
+    id: 'java',
+    name: 'Java',
+    value: 'java',
+    version: '15.0.2',
+    extension: 'java',
+  },
+  {
+    id: 'cpp',
+    name: 'C++',
+    value: 'cpp',
+    version: '10.2.0',
+    extension: 'cpp',
+  },
+  {
+    id: 'c',
+    name: 'C',
+    value: 'c',
+    version: '10.2.0',
+    extension: 'c',
+  },
+  {
+    id: 'typescript',
+    name: 'TypeScript',
+    value: 'typescript',
+    version: '5.0.3',
+    extension: 'ts',
+  },
+  {
+    id: 'go',
+    name: 'Go',
+    value: 'go',
+    version: '1.19.2',
+    extension: 'go',
+  },
+  {
+    id: 'rust',
+    name: 'Rust',
+    value: 'rust',
+    version: '1.68.2',
+    extension: 'rs',
+  },
+  {
+    id: 'ruby',
+    name: 'Ruby',
+    value: 'ruby',
+    version: '3.2.1',
+    extension: 'rb',
+  },
+  {
+    id: 'php',
+    name: 'PHP',
+    value: 'php',
+    version: '8.2.3',
+    extension: 'php',
+  }
+];
