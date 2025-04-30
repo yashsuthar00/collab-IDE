@@ -162,14 +162,15 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
 
   return (
     <div className="h-full flex flex-col relative">
-      {/* Read-only indicator */}
+      {/* Redesigned read-only indicator - more subtle and modern */}
       {readOnly && (
-        <div className="absolute top-0 left-0 right-0 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs text-center py-1 z-10">
-          Read-only mode - You don't have permission to edit this code
+        <div className="absolute top-3 right-3 bg-opacity-90 z-10 rounded-md px-2.5 py-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700">
+          <div className="h-2 w-2 rounded-full bg-amber-400 dark:bg-amber-500 mr-2"></div>
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Read-only</span>
         </div>
       )}
 
-      <div className={`flex-grow ${showCharsBar && !readOnly ? 'pb-12' : ''} ${readOnly ? 'pt-7' : ''}`}>
+      <div className={`flex-grow ${showCharsBar && !readOnly ? 'pb-12' : ''}`}>
         <Editor
           height="100%"
           width="100%"

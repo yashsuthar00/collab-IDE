@@ -1,4 +1,4 @@
-import { Terminal, MessageSquare } from 'lucide-react';
+import { Terminal, MessageSquare, LockIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 function OutputPanel({ output, input, setInput, loading, error, activeTab, setActiveTab, readOnly = false }) {
@@ -20,10 +20,12 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
   }, [input, activeTab]);
 
   return (
-    <div className="output-panel h-full flex flex-col">
-      {readOnly && (
-        <div className="absolute top-0 left-0 right-0 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs text-center py-1 z-10">
-          Read-only mode - You don't have permission to run code
+    <div className="output-panel h-full flex flex-col relative">
+      {/* Redesigned read-only indicator for output panel */}
+      {readOnly && activeTab === 'input' && (
+        <div className="absolute top-12 right-3 z-10 rounded-md px-2.5 py-1 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700">
+          <div className="h-2 w-2 rounded-full bg-amber-400 dark:bg-amber-500 mr-2"></div>
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Input locked</span>
         </div>
       )}
       
@@ -48,18 +50,20 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
               activeTab === 'input'
                 ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
+            } ${readOnly ? 'relative' : ''}`}
             aria-selected={activeTab === 'input'}
             role="tab"
-            disabled={readOnly}
           >
             <MessageSquare className="w-4 h-4 mr-2" />
             <span>Input</span>
+            {readOnly && (
+              <LockIcon className="w-3 h-3 ml-1.5 text-amber-500 dark:text-amber-400" />
+            )}
           </button>
         </div>
       </div>
       
-      <div className={`output-panel-content flex-1 p-2 md:p-4 overflow-auto bg-white dark:bg-gray-800 ${readOnly ? 'pt-8' : ''}`}>
+      <div className="output-panel-content flex-1 p-2 md:p-4 overflow-auto bg-white dark:bg-gray-800">
         {activeTab === 'output' ? (
           <div className="h-full output-panel-output">
             {loading ? (
@@ -111,14 +115,14 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
             )}
           </div>
         ) : (
-          <div className="h-full output-panel-input">
+          <div className="h-full output-panel-input relative">
             <textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => !readOnly && setInput(e.target.value)}
               onFocus={handleTextareaResize}
-              placeholder={readOnly ? "Input is read-only" : "Enter program input here..."}
-              className="w-full h-full p-3 md:p-4 font-mono text-xs md:text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none text-gray-800 dark:text-gray-200"
+              placeholder={readOnly ? "Input is locked in read-only mode" : "Enter program input here..."}
+              className={`w-full h-full p-3 md:p-4 font-mono text-xs md:text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none text-gray-800 dark:text-gray-200 ${readOnly ? 'cursor-not-allowed bg-gray-50/80 dark:bg-gray-900/50' : ''}`}
               spellCheck="false"
               autoCapitalize="none"
               autoComplete="off"

@@ -82,15 +82,26 @@ const roomReducer = (state, action) => {
       };
       
     case ACTION_TYPES.UPDATE_ACCESS_LEVEL:
+      // Check if the updated user is the current user
       if (action.payload.userId === state.currentUser.id) {
+        console.log(`Updating my access level to ${action.payload.accessLevel}`);
         return {
           ...state,
           currentUser: {
             ...state.currentUser,
             accessLevel: action.payload.accessLevel,
           },
+          // Also update in the users array to ensure consistency
+          users: state.users.map(user => 
+            user.id === action.payload.userId
+              ? { ...user, accessLevel: action.payload.accessLevel }
+              : user
+          ),
         };
       }
+      
+      // If it's another user, update only in the users array
+      console.log(`Updating access level for user ${action.payload.userId} to ${action.payload.accessLevel}`);
       return {
         ...state,
         users: state.users.map(user => 
@@ -177,6 +188,7 @@ export const RoomProvider = ({ children }) => {
     });
     
     socketInstance.on('access-updated', (data) => {
+      console.log("Access updated event received:", data);
       dispatch({
         type: ACTION_TYPES.UPDATE_ACCESS_LEVEL,
         payload: {

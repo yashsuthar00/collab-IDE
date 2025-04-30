@@ -391,13 +391,16 @@ io.on('connection', (socket) => {
     // Cannot change owner's role
     if (userToUpdate.accessLevel === ACCESS_LEVELS.OWNER) return;
     
-    // Update user access level
+    console.log(`Updating access level for ${userId} from ${userToUpdate.accessLevel} to ${accessLevel}`);
+    
+    // Update user access level in the room data
     userToUpdate.accessLevel = accessLevel;
     
-    // Broadcast update to all users in room
+    // Broadcast update to ALL users in room, ensuring everyone gets the update
     io.to(roomId).emit('access-updated', {
       userId,
-      accessLevel
+      accessLevel,
+      roomId 
     });
     
     console.log(`User ${userId} access updated to ${accessLevel} in room ${roomId}`);

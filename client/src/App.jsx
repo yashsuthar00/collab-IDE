@@ -361,12 +361,6 @@ function CollaborativeApp() {
             onRunCode={handleRunCode}
             readOnly={isInRoom && !checkPermission('EDIT_CODE')}
           />
-          
-          {isInRoom && !checkPermission('EDIT_CODE') && (
-            <div className="absolute top-2 right-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs px-2 py-1 rounded-md">
-              Read-only mode
-            </div>
-          )}
         </div>
         
         <div 
