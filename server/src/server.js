@@ -33,6 +33,7 @@ const languageVersions = {
 
 // In-memory storage for rooms (in production, use a database)
 const rooms = new Map();
+const roomVersions = new Map(); // Track document versions for each room
 
 // Access levels for collaboration
 const ACCESS_LEVELS = {
@@ -331,7 +332,103 @@ io.on('connection', (socket) => {
     }
   });
   
-  // Handle code changes
+  // Handle code changes with OT
+  socket.on('ot-operations', ({ roomId, userId, operations, version, clientId }) => {
+    if (!rooms.has(roomId)) return;
+    
+    const room = rooms.get(roomId);
+    
+    // Initialize room version tracking if needed
+    if (!roomVersions.has(roomId)) {
+      roomVersions.set(roomId, {
+        version: 0,
+        pendingOps: [],
+        baseContent: ''
+      });
+    }
+    
+    const versionData = roomVersions.get(roomId);
+    
+    // Handle version conflicts
+    if (version !== versionData.version) {
+      // Client is out of sync - send current state to that client only
+      socket.emit('ot-sync', {
+        roomId,
+        content: room.code,
+        version: versionData.version
+      });
+      return;
+    }
+    
+    // Store the base content if not already set
+    if (!versionData.baseContent) {
+      versionData.baseContent = room.code || '';
+    }
+    
+    // Apply operations to room code
+    try {
+      let newCode = room.code;
+      
+      for (const op of operations) {
+        // Apply transforms here if needed for pending ops
+        // For simplicity, we're just applying sequentially
+        
+        // Apply the operation
+        if (op.type === 'insert') {
+          newCode = newCode.substring(0, op.position) + op.text + newCode.substring(op.position);
+        } else if (op.type === 'delete') {
+          newCode = newCode.substring(0, op.position) + newCode.substring(op.position + op.length);
+        }
+      }
+      
+      // Update room code
+      room.code = newCode;
+      
+      // Increment version
+      versionData.version++;
+      roomVersions.set(roomId, versionData);
+      
+      // Broadcast operations to all other clients
+      socket.to(roomId).emit('ot-operations', {
+        roomId,
+        userId,
+        operations,
+        version: versionData.version,
+        clientId
+      });
+      
+      // Acknowledge receipt to sender with new version
+      socket.emit('ot-ack', {
+        roomId,
+        version: versionData.version,
+        clientId
+      });
+      
+    } catch (error) {
+      console.error('Error applying OT operations:', error);
+      socket.emit('ot-error', { 
+        roomId, 
+        message: 'Error applying operations',
+        clientId
+      });
+    }
+  });
+  
+  // Provide full sync for new clients or when conflicts occur
+  socket.on('ot-request-sync', ({ roomId }) => {
+    if (!rooms.has(roomId)) return;
+    
+    const room = rooms.get(roomId);
+    const versionData = roomVersions.get(roomId) || { version: 0 };
+    
+    socket.emit('ot-sync', {
+      roomId,
+      content: room.code || '',
+      version: versionData.version
+    });
+  });
+  
+  // Handle code changes (backward compatibility)
   socket.on('code-change', ({ roomId, userId, code }) => {
     if (!rooms.has(roomId)) return;
     
@@ -339,6 +436,14 @@ io.on('connection', (socket) => {
     
     // Store the latest code in the room
     room.code = code;
+    
+    // Update version for OT
+    if (roomVersions.has(roomId)) {
+      const versionData = roomVersions.get(roomId);
+      versionData.version++;
+      versionData.baseContent = code;
+      roomVersions.set(roomId, versionData);
+    }
     
     // Broadcast to all other users in the room
     socket.to(roomId).emit('code-update', {
@@ -352,26 +457,36 @@ io.on('connection', (socket) => {
   socket.on('cursor-position', ({ roomId, userId, position, userName }) => {
     if (!rooms.has(roomId)) return;
     
-    // Broadcast the cursor position to all other users in the room
-    socket.to(roomId).emit('cursor-update', {
-      roomId,
-      userId,
-      position,
-      userName
-    });
+    // Ensure position has all required properties
+    if (position && position.lineNumber !== undefined && position.column !== undefined) {
+      console.log(`Broadcasting cursor position for ${userName} in room ${roomId}`);
+      
+      // Broadcast the cursor position to all other users in the room
+      socket.to(roomId).emit('cursor-update', {
+        roomId,
+        userId,
+        position,
+        userName
+      });
+    }
   });
-  
+
   // Handle selection updates
   socket.on('selection-change', ({ roomId, userId, selection, userName }) => {
     if (!rooms.has(roomId)) return;
     
-    // Broadcast the selection to all other users in the room
-    socket.to(roomId).emit('selection-update', {
-      roomId,
-      userId,
-      selection,
-      userName
-    });
+    // Ensure selection has all required properties
+    if (selection && selection.startLineNumber !== undefined) {
+      console.log(`Broadcasting selection for ${userName} in room ${roomId}`);
+      
+      // Broadcast the selection to all other users in the room
+      socket.to(roomId).emit('selection-update', {
+        roomId,
+        userId,
+        selection,
+        userName
+      });
+    }
   });
   
   // Handle changes in language

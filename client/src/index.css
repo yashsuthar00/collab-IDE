@@ -219,7 +219,7 @@ html.dark .navbar-component {
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.6;
   }
 }
 
@@ -227,6 +227,37 @@ html.dark .navbar-component {
 .multi-cursor-selection {
   opacity: 0.3;
   border-radius: 2px;
+}
+
+/* Enhanced collaborative editing cursor styles */
+.remote-cursor {
+  position: absolute;
+  width: 2px !important;
+  height: 18px !important;
+  background-color: blue;
+  z-index: 10000;
+}
+
+.remote-cursor-line {
+  position: relative;
+}
+
+.remote-cursor-name-text {
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  white-space: nowrap;
+  position: absolute;
+  z-index: 10001;
+}
+
+.remote-selection {
+  opacity: 0.3;
+  border-radius: 2px;
+}
+
+[class^="remote-cursor-"]:not([class*="name"]):not([class*="line"]):not([class*="text"]) {
+  animation: cursor-blink 1s infinite;
 }
 
 /* User color indicators in text */

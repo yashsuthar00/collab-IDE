@@ -4,6 +4,11 @@ import SpecialCharactersBar from './SpecialCharactersBar';
 import { getSocket } from '../utils/api';
 import { useRoom } from '../contexts/RoomContext';
 import { debounce } from '../utils/helpers';
+import { v4 as uuidv4 } from 'uuid';
+import { 
+  monacoChangeToOp, applyOps, transformOps, 
+  positionToOffset, offsetToPosition 
+} from '../utils/ot';
 
 // Helper function to generate random colors for user cursors
 const getRandomColor = () => {
@@ -14,89 +19,58 @@ const getRandomColor = () => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
+// Create a color map to ensure users always get the same color
+const userColorMap = new Map();
+
+// Generate a unique client ID for this editor instance
+const CLIENT_ID = uuidv4();
+
 function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = false }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const monaco = useMonaco();
   const cursorsRef = useRef(new Map());
   const decorationsRef = useRef([]);
-  const userColorRef = useRef(getRandomColor());
+  const codeRef = useRef(code);
+  const currentVersionRef = useRef(0);
+  const pendingOpsRef = useRef([]);
+  const isApplyingRemoteOpsRef = useRef(false);
   
   // Get room context
   const { isInRoom, roomId, currentUser } = useRoom();
   
   const [showCharsBar, setShowCharsBar] = useState(window.innerWidth < 1024);
   const [isEditorFocused, setIsEditorFocused] = useState(false);
+  const [remoteUserCursors, setRemoteUserCursors] = useState(new Map());
+
+  // Function to get a consistent color for a user
+  const getUserColor = useCallback((userId) => {
+    if (!userColorMap.has(userId)) {
+      userColorMap.set(userId, getRandomColor());
+    }
+    return userColorMap.get(userId);
+  }, []);
   
-  // Store all remote user cursors
-  const [remoteCursors, setRemoteCursors] = useState(new Map());
-  
-  // Effect to handle socket events for collaborative editing
-  useEffect(() => {
-    if (!isInRoom || !editorRef.current) return;
-    
-    const socket = getSocket();
-    
-    // Listen for code updates from other users
-    socket.on('code-update', (data) => {
-      if (data.roomId === roomId && data.userId !== currentUser.id) {
-        // Store current cursor position
-        const currentPosition = editorRef.current.getPosition();
-        
-        // Apply the remote code change
-        editorRef.current.getModel().setValue(data.code);
-        
-        // Restore cursor position
-        if (currentPosition) {
-          editorRef.current.setPosition(currentPosition);
-        }
-      }
-    });
-    
-    // Listen for cursor position updates from other users
-    socket.on('cursor-update', (data) => {
-      if (data.roomId === roomId && data.userId !== currentUser.id && data.position) {
-        updateRemoteCursor(data.userId, data.position, data.userName);
-      }
-    });
-    
-    // Listen for selection updates from other users
-    socket.on('selection-update', (data) => {
-      if (data.roomId === roomId && data.userId !== currentUser.id && data.selection) {
-        updateRemoteSelection(data.userId, data.selection, data.userName);
-      }
-    });
-    
-    return () => {
-      socket.off('code-update');
-      socket.off('cursor-update');
-      socket.off('selection-update');
-    };
-  }, [isInRoom, roomId, currentUser?.id, editorRef.current]);
-  
-  // Function to update remote user cursor
-  const updateRemoteCursor = (userId, position, userName) => {
+  // Update remote cursor
+  const updateRemoteCursor = useCallback((userId, position, userName) => {
     if (!editorRef.current || !monacoRef.current) return;
     
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    
     // Get or create user color
-    if (!cursorsRef.current.has(userId)) {
-      cursorsRef.current.set(userId, {
-        color: getRandomColor(),
-        decorations: []
-      });
-    }
+    const userColor = getUserColor(userId);
     
-    const userCursor = cursorsRef.current.get(userId);
-    
-    // Remove previous decorations
-    if (userCursor.decorations.length) {
-      editorRef.current.deltaDecorations(userCursor.decorations, []);
+    // Remove previous decorations for this user
+    const previousDecorations = cursorsRef.current.get(userId)?.decorations || [];
+    if (previousDecorations.length > 0) {
+      editor.deltaDecorations(previousDecorations, []);
     }
     
     // Create cursor and label decorations
     const cursorDecorations = [
       {
-        range: new monacoRef.current.Range(
+        range: new monaco.Range(
           position.lineNumber,
           position.column,
           position.lineNumber,
@@ -105,61 +79,66 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
         options: {
           className: `remote-cursor-${userId}`,
           hoverMessage: { value: userName || 'User' },
-          beforeContentClassName: 'remote-cursor-before',
-          afterContentClassName: 'remote-cursor-after',
-          zIndex: 10000
+          zIndex: 10
         }
       },
       {
-        range: new monacoRef.current.Range(
+        range: new monaco.Range(
           position.lineNumber,
           1,
           position.lineNumber,
           1
         ),
         options: {
-          beforeContentClassName: 'remote-cursor-name',
-          before: {
-            content: userName || 'User',
+          className: `remote-cursor-line-${userId}`,
+          isWholeLine: false,
+          marginClassName: `remote-cursor-name-${userId}`,
+          after: {
+            content: `  ${userName || 'User'} `,
             inlineClassName: `remote-cursor-name-text-${userId}`
           }
         }
       }
     ];
     
-    // Add dynamic CSS for this user's cursor
-    addCursorStyle(userId, userCursor.color);
+    // Add dynamic styles for this user's cursor
+    addCursorStyle(userId, userColor, userName);
     
     // Apply decorations
-    userCursor.decorations = editorRef.current.deltaDecorations([], cursorDecorations);
+    const newDecorations = editor.deltaDecorations([], cursorDecorations);
     
     // Update cursors map
-    cursorsRef.current.set(userId, userCursor);
-  };
-  
-  // Function to update remote user selection
-  const updateRemoteSelection = (userId, selection, userName) => {
+    cursorsRef.current.set(userId, {
+      color: userColor,
+      decorations: newDecorations,
+      position,
+      userName
+    });
+
+    // Update state to trigger re-render if needed
+    setRemoteUserCursors(new Map(cursorsRef.current));
+  }, [getUserColor]);
+
+  // Update remote selection
+  const updateRemoteSelection = useCallback((userId, selection, userName) => {
     if (!editorRef.current || !monacoRef.current) return;
     
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    
     // Get or create user color
-    if (!cursorsRef.current.has(userId)) {
-      cursorsRef.current.set(userId, {
-        color: getRandomColor(),
-        decorations: []
-      });
-    }
+    const userColor = getUserColor(userId);
     
-    const userCursor = cursorsRef.current.get(userId);
-    
-    // Remove previous decorations
-    if (userCursor.decorations.length) {
-      editorRef.current.deltaDecorations(userCursor.decorations, []);
+    // Remove previous decorations for this user
+    const previousDecorations = cursorsRef.current.get(userId)?.decorations || [];
+    if (previousDecorations.length > 0) {
+      editor.deltaDecorations(previousDecorations, []);
     }
     
     // Create selection decoration
     const selectionDecorations = [
       {
-        range: new monacoRef.current.Range(
+        range: new monaco.Range(
           selection.startLineNumber,
           selection.startColumn,
           selection.endLineNumber,
@@ -171,34 +150,56 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
         }
       },
       {
-        range: new monacoRef.current.Range(
+        range: new monaco.Range(
+          selection.endLineNumber,
+          selection.endColumn,
+          selection.endLineNumber,
+          selection.endColumn
+        ),
+        options: {
+          className: `remote-cursor-${userId}`,
+          hoverMessage: { value: userName || 'User' },
+        }
+      },
+      {
+        range: new monaco.Range(
           selection.endLineNumber,
           1,
           selection.endLineNumber,
           1
         ),
         options: {
-          beforeContentClassName: 'remote-cursor-name',
-          before: {
-            content: userName || 'User',
+          className: `remote-cursor-line-${userId}`,
+          marginClassName: `remote-cursor-name-${userId}`,
+          after: {
+            content: `  ${userName || 'User'} `,
             inlineClassName: `remote-cursor-name-text-${userId}`
           }
         }
       }
     ];
     
-    // Add dynamic CSS for this user's selection
-    addSelectionStyle(userId, userCursor.color);
+    // Add dynamic styles for this user's cursor and selection
+    addCursorStyle(userId, userColor, userName);
+    addSelectionStyle(userId, userColor);
     
     // Apply decorations
-    userCursor.decorations = editorRef.current.deltaDecorations([], selectionDecorations);
+    const newDecorations = editor.deltaDecorations([], selectionDecorations);
     
     // Update cursors map
-    cursorsRef.current.set(userId, userCursor);
-  };
-  
+    cursorsRef.current.set(userId, {
+      color: userColor,
+      decorations: newDecorations,
+      selection,
+      userName
+    });
+
+    // Update state to trigger re-render if needed
+    setRemoteUserCursors(new Map(cursorsRef.current));
+  }, [getUserColor]);
+
   // Add dynamic CSS for user cursors
-  const addCursorStyle = (userId, color) => {
+  const addCursorStyle = useCallback((userId, color, userName) => {
     const styleId = `cursor-style-${userId}`;
     let styleEl = document.getElementById(styleId);
     
@@ -210,14 +211,28 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     
     styleEl.innerHTML = `
       .remote-cursor-${userId} {
+        background-color: ${color};
+        width: 2px !important;
+        height: 18px !important;
+        position: absolute;
+        z-index: 10000;
+      }
+      .remote-cursor-line-${userId} {
         position: relative;
       }
-      .remote-cursor-before {
+      .remote-cursor-name-${userId}::before {
+        content: "${userName}";
         position: absolute;
-        border-left: 2px solid ${color};
-        height: 18px;
-        width: 0;
-        z-index: 10000;
+        right: 100%;
+        opacity: 0.8;
+        background-color: ${color};
+        color: white;
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 2px;
+        white-space: nowrap;
+        z-index: 10001;
+        pointer-events: none;
       }
       .remote-cursor-name-text-${userId} {
         background-color: ${color};
@@ -227,14 +242,14 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
         border-radius: 2px;
         white-space: nowrap;
         position: absolute;
-        margin-top: -22px;
+        top: -20px;
         z-index: 10001;
       }
     `;
-  };
+  }, []);
   
   // Add dynamic CSS for user selections
-  const addSelectionStyle = (userId, color) => {
+  const addSelectionStyle = useCallback((userId, color) => {
     const styleId = `selection-style-${userId}`;
     let styleEl = document.getElementById(styleId);
     
@@ -247,55 +262,188 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     styleEl.innerHTML = `
       .remote-selection-${userId} {
         background-color: ${color}33;
+        border: 1px solid ${color};
         border-radius: 2px;
-      }
-      .remote-cursor-name-text-${userId} {
-        background-color: ${color};
-        color: white;
-        font-size: 10px;
-        padding: 2px 4px;
-        border-radius: 2px;
-        white-space: nowrap;
-        position: absolute;
-        margin-top: -22px;
-        z-index: 10001;
+        z-index: 9999;
       }
     `;
-  };
-  
-  // Debounced function to emit cursor position
-  const emitCursorPosition = useCallback(
-    debounce((position) => {
-      if (isInRoom && !readOnly) {
-        const socket = getSocket();
-        socket.emit('cursor-position', {
-          roomId,
-          userId: currentUser.id,
-          position,
-          userName: currentUser.name
-        });
-      }
-    }, 50),
-    [isInRoom, roomId, currentUser?.id, readOnly]
-  );
-  
-  // Debounced function to emit selection changes
-  const emitSelectionChange = useCallback(
-    debounce((selection) => {
-      if (isInRoom && !readOnly) {
-        const socket = getSocket();
-        socket.emit('selection-change', {
-          roomId,
-          userId: currentUser.id,
-          selection,
-          userName: currentUser.name
-        });
-      }
-    }, 50),
-    [isInRoom, roomId, currentUser?.id, readOnly]
-  );
+  }, []);
 
-  function handleEditorDidMount(editor, monaco) {
+  // Handle local editing operations with OT
+  const handleDocumentChange = useCallback((event) => {
+    if (readOnly || isApplyingRemoteOpsRef.current) return;
+    
+    // Generate operations from Monaco change event
+    const operations = monacoChangeToOp(event, codeRef.current);
+    if (operations.length === 0) return;
+    
+    // Update the reference to current code content
+    codeRef.current = editorRef.current.getValue();
+    
+    // Add client ID to each operation for conflict resolution
+    const opsWithClientId = operations.map(op => ({
+      ...op,
+      clientId: CLIENT_ID
+    }));
+    
+    // Store operations as pending until acknowledged
+    pendingOpsRef.current.push({
+      operations: opsWithClientId,
+      version: currentVersionRef.current
+    });
+    
+    // Send operations to server
+    if (isInRoom && socket) {
+      const socket = getSocket();
+      socket.emit('ot-operations', {
+        roomId,
+        userId: currentUser?.id,
+        operations: opsWithClientId,
+        version: currentVersionRef.current,
+        clientId: CLIENT_ID
+      });
+    }
+  }, [isInRoom, readOnly, roomId, currentUser?.id]);
+  
+  // Apply remote operations
+  const applyRemoteOperations = useCallback((operations) => {
+    if (!editorRef.current) return;
+    
+    // Mark that we're applying remote ops to avoid handling our own changes
+    isApplyingRemoteOpsRef.current = true;
+    
+    try {
+      // Get current editor state
+      const model = editorRef.current.getModel();
+      const currentValue = model.getValue();
+      
+      // Apply operations to get new text
+      const newText = applyOps(currentValue, operations);
+      
+      // Update editor with new text
+      model.pushEditOperations(
+        editorRef.current.getSelections(),
+        [
+          {
+            range: model.getFullModelRange(),
+            text: newText,
+          }
+        ],
+        () => null
+      );
+      
+      // Update our reference to current content
+      codeRef.current = newText;
+      
+      // Update the outer component's state
+      setCode(newText);
+      
+    } finally {
+      // Unmark applying remote ops
+      isApplyingRemoteOpsRef.current = false;
+    }
+  }, [setCode]);
+  
+  // Handle socket events for OT
+  useEffect(() => {
+    if (!isInRoom || !editorRef.current) return;
+    
+    const socket = getSocket();
+    
+    // Request initial sync with server
+    socket.emit('ot-request-sync', { roomId });
+    
+    // Listen for operation acknowledgments
+    const handleOpAck = ({ version, clientId }) => {
+      if (clientId === CLIENT_ID) {
+        // Update current version
+        currentVersionRef.current = version;
+        
+        // Remove acknowledged operations from pending
+        pendingOpsRef.current = pendingOpsRef.current.filter(
+          op => op.version !== version - 1
+        );
+      }
+    };
+    
+    // Listen for operations from other clients
+    const handleRemoteOps = ({ operations, userId, version, clientId }) => {
+      if (clientId === CLIENT_ID) return; // Ignore our own ops echoed back
+      
+      // If we receive a higher version than expected, request a full sync
+      if (version > currentVersionRef.current + 1) {
+        socket.emit('ot-request-sync', { roomId });
+        return;
+      }
+      
+      // Apply remote operations
+      applyRemoteOperations(operations);
+      
+      // Update version
+      currentVersionRef.current = version;
+      
+      // Transform any pending local operations against the received remote ops
+      if (pendingOpsRef.current.length > 0) {
+        pendingOpsRef.current = pendingOpsRef.current.map(pendingOp => ({
+          ...pendingOp,
+          operations: transformOps(pendingOp.operations, operations)
+        }));
+      }
+    };
+    
+    // Handle full document sync
+    const handleSync = ({ content, version }) => {
+      // Only sync if content is different
+      if (content !== codeRef.current) {
+        // Mark we're applying remote changes
+        isApplyingRemoteOpsRef.current = true;
+        
+        try {
+          // Set editor content
+          editorRef.current.setValue(content);
+          
+          // Update our reference
+          codeRef.current = content;
+          
+          // Update outer component state
+          setCode(content);
+        } finally {
+          isApplyingRemoteOpsRef.current = false;
+        }
+      }
+      
+      // Update version
+      currentVersionRef.current = version;
+      
+      // Clear pending operations - they're no longer valid after a full sync
+      pendingOpsRef.current = [];
+    };
+    
+    // Listen for errors
+    const handleOtError = ({ message }) => {
+      console.error('OT error:', message);
+      
+      // Request a fresh sync after an error
+      socket.emit('ot-request-sync', { roomId });
+    };
+    
+    // Register event handlers
+    socket.on('ot-ack', handleOpAck);
+    socket.on('ot-operations', handleRemoteOps);
+    socket.on('ot-sync', handleSync);
+    socket.on('ot-error', handleOtError);
+    
+    // Clean up on unmount
+    return () => {
+      socket.off('ot-ack', handleOpAck);
+      socket.off('ot-operations', handleRemoteOps);
+      socket.off('ot-sync', handleSync);
+      socket.off('ot-error', handleOtError);
+    };
+  }, [isInRoom, roomId, applyRemoteOperations, setCode]);
+
+  // Editor mount handler
+  const handleEditorDidMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
     
@@ -318,7 +466,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       onRunCode();
     });
     
-    // Focus editor on mount for desktop, but not for mobile (avoids keyboard popping up)
+    // Focus editor on mount for desktop, but not for mobile
     if (window.innerWidth >= 768) {
       editor.focus();
     }
@@ -335,36 +483,40 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     // Set read-only state
     editor.updateOptions({ readOnly });
     
+    // Initialize code reference
+    codeRef.current = editor.getValue();
+    
+    // Listen for model content changes for OT
+    const model = editor.getModel();
+    model.onDidChangeContent(handleDocumentChange);
+    
     // Add cursor position change listener for collaborative editing
     editor.onDidChangeCursorPosition((e) => {
-      if (isInRoom && !readOnly) {
+      if (isInRoom && !readOnly && currentUser?.id) {
         emitCursorPosition(e.position);
       }
     });
     
     // Add selection change listener for collaborative editing
     editor.onDidChangeCursorSelection((e) => {
-      if (isInRoom && !readOnly) {
+      if (isInRoom && !readOnly && currentUser?.id) {
         emitSelectionChange(e.selection);
       }
     });
-  }
 
-  // Handle code change with proper value and collaboration
-  const handleCodeChange = (newCode) => {
+    console.log("Editor mounted successfully, OT enabled");
+  }, [theme, onRunCode, handleDocumentChange]);
+
+  // Handle code change with OT
+  const handleCodeChange = useCallback((newCode) => {
+    // Let OT mechanism handle the actual changes
     if (newCode !== undefined && newCode !== null) {
-      setCode(newCode);
-      
-      if (isInRoom && !readOnly && editorRef.current) {
-        const socket = getSocket();
-        socket.emit('code-change', {
-          roomId,
-          userId: currentUser.id,
-          code: newCode
-        });
+      // Only update external state when not applying remote ops
+      if (!isApplyingRemoteOpsRef.current) {
+        setCode(newCode);
       }
     }
-  };
+  }, [setCode]);
 
   // Update theme when it changes
   useEffect(() => {
@@ -493,6 +645,22 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
           Swipe to see output →
         </div>
       </div>
+      
+      {/* Active collaborators indicator */}
+      {isInRoom && remoteUserCursors.size > 0 && (
+        <div className="absolute top-3 left-3 flex space-x-1 z-20">
+          {Array.from(remoteUserCursors.entries()).map(([userId, data]) => (
+            <div 
+              key={userId} 
+              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+              style={{ backgroundColor: data.color }}
+              title={data.userName || 'User'}
+            >
+              {(data.userName || 'U').charAt(0).toUpperCase()}
+            </div>
+          ))}
+        </div>
+      )}
       
       {/* Special characters bar (only show if not read-only) */}
       {showCharsBar && !readOnly && (
