@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import SpecialCharactersBar from './SpecialCharactersBar';
 
-function CodeEditor({ code, setCode, language, theme, onRunCode }) {
+function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = false }) {
   const editorRef = useRef(null);
   // Always set showCharsBar to true for mobile screens
   const [showCharsBar, setShowCharsBar] = useState(window.innerWidth < 1024);
@@ -43,6 +43,9 @@ function CodeEditor({ code, setCode, language, theme, onRunCode }) {
     editor.onDidBlurEditorText(() => {
       setIsEditorFocused(false);
     });
+
+    // Set read-only state
+    editor.updateOptions({ readOnly });
   }
 
   // Handle code change with proper value
@@ -62,6 +65,13 @@ function CodeEditor({ code, setCode, language, theme, onRunCode }) {
     }
   }, [theme]);
 
+  // Update readOnly state when it changes
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.updateOptions({ readOnly });
+    }
+  }, [readOnly]);
+
   // Force the special characters bar to show on mobile and tablet
   useEffect(() => {
     const checkMobile = () => {
@@ -80,6 +90,9 @@ function CodeEditor({ code, setCode, language, theme, onRunCode }) {
 
   // Handle insertion of special characters
   const handleSpecialCharInsert = (before, after = '') => {
+    // Don't allow insertion in read-only mode
+    if (readOnly) return;
+
     if (editorRef.current) {
       const editor = editorRef.current;
       
@@ -141,19 +154,28 @@ function CodeEditor({ code, setCode, language, theme, onRunCode }) {
         horizontal: 'auto',
         verticalScrollbarSize: isMobile ? 4 : 10,
         horizontalScrollbarSize: isMobile ? 4 : 10,
-      }
+      },
+      readOnly,
+      domReadOnly: readOnly,
     };
   };
 
   return (
     <div className="h-full flex flex-col relative">
-      <div className={`flex-grow ${showCharsBar ? 'pb-12' : ''}`}>
+      {/* Read-only indicator */}
+      {readOnly && (
+        <div className="absolute top-0 left-0 right-0 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs text-center py-1 z-10">
+          Read-only mode - You don't have permission to edit this code
+        </div>
+      )}
+
+      <div className={`flex-grow ${showCharsBar && !readOnly ? 'pb-12' : ''} ${readOnly ? 'pt-7' : ''}`}>
         <Editor
           height="100%"
           width="100%"
           language={language}
           value={code}
-          onChange={handleCodeChange}
+          onChange={readOnly ? undefined : handleCodeChange}
           onMount={handleEditorDidMount}
           theme={theme === 'dark' ? 'customDark' : 'light'}
           options={getEditorOptions()}
@@ -164,8 +186,8 @@ function CodeEditor({ code, setCode, language, theme, onRunCode }) {
         </div>
       </div>
       
-      {/* Always render the special characters bar on mobile with !important styles */}
-      {window.innerWidth < 1024 && (
+      {/* Special characters bar (only show if not read-only) */}
+      {showCharsBar && !readOnly && (
         <div className="fixed bottom-0 left-0 right-0 z-50" style={{display: 'block !important'}}>
           <SpecialCharactersBar 
             onInsert={handleSpecialCharInsert} 

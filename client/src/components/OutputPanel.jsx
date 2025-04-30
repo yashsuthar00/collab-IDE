@@ -1,7 +1,7 @@
 import { Terminal, MessageSquare } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
-function OutputPanel({ output, input, setInput, loading, error, activeTab, setActiveTab }) {
+function OutputPanel({ output, input, setInput, loading, error, activeTab, setActiveTab, readOnly = false }) {
   const textareaRef = useRef(null);
 
   // Handle textarea resize for better mobile experience
@@ -21,6 +21,12 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
 
   return (
     <div className="output-panel h-full flex flex-col">
+      {readOnly && (
+        <div className="absolute top-0 left-0 right-0 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs text-center py-1 z-10">
+          Read-only mode - You don't have permission to run code
+        </div>
+      )}
+      
       <div className="output-panel-tabs border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="flex">
           <button
@@ -45,6 +51,7 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
             }`}
             aria-selected={activeTab === 'input'}
             role="tab"
+            disabled={readOnly}
           >
             <MessageSquare className="w-4 h-4 mr-2" />
             <span>Input</span>
@@ -52,7 +59,7 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
         </div>
       </div>
       
-      <div className="output-panel-content flex-1 p-2 md:p-4 overflow-auto bg-white dark:bg-gray-800">
+      <div className={`output-panel-content flex-1 p-2 md:p-4 overflow-auto bg-white dark:bg-gray-800 ${readOnly ? 'pt-8' : ''}`}>
         {activeTab === 'output' ? (
           <div className="h-full output-panel-output">
             {loading ? (
@@ -108,18 +115,22 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
             <textarea
               ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => !readOnly && setInput(e.target.value)}
               onFocus={handleTextareaResize}
-              placeholder="Enter program input here..."
+              placeholder={readOnly ? "Input is read-only" : "Enter program input here..."}
               className="w-full h-full p-3 md:p-4 font-mono text-xs md:text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none text-gray-800 dark:text-gray-200"
               spellCheck="false"
               autoCapitalize="none"
               autoComplete="off"
               autoCorrect="off"
+              readOnly={readOnly}
+              disabled={readOnly}
             />
-            <div className="mt-2 mb-1 text-xs text-gray-500 dark:text-gray-400 text-center md:hidden">
-              Tap Run button to execute code
-            </div>
+            {!readOnly && (
+              <div className="mt-2 mb-1 text-xs text-gray-500 dark:text-gray-400 text-center md:hidden">
+                Tap Run button to execute code
+              </div>
+            )}
           </div>
         )}
       </div>

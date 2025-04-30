@@ -1,4 +1,4 @@
-import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X } from 'lucide-react';
+import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 function Navbar({ 
@@ -12,7 +12,12 @@ function Navbar({
   toggleAutoSave, 
   isLoading,
   mobileView,
-  toggleMobileView
+  toggleMobileView,
+  isInRoom,
+  currentUser,
+  onOpenUserPanel,
+  onLeaveRoom,
+  onJoinRoom
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   
@@ -65,7 +70,36 @@ function Navbar({
         </div>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center space-x-4">
+        <div className="hidden md:flex items-center space-x-3">
+          {/* Room collaboration buttons */}
+          {!isInRoom ? (
+            <button
+              onClick={onJoinRoom}
+              className="flex items-center px-3 py-1.5 rounded-md text-sm border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+            >
+              <UserPlus className="w-4 h-4 mr-1" />
+              Join Room
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onOpenUserPanel}
+                className="flex items-center px-3 py-1.5 rounded-md text-sm border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+              >
+                <Users className="w-4 h-4 mr-1" />
+                Users ({currentUser?.name})
+              </button>
+              
+              <button
+                onClick={onLeaveRoom}
+                className="flex items-center px-3 py-1.5 rounded-md text-sm border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+              >
+                <LogOut className="w-4 h-4 mr-1" />
+                Leave Room
+              </button>
+            </>
+          )}
+
           {/* Language Selector */}
           <div className="flex items-center">
             <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
@@ -73,6 +107,7 @@ function Navbar({
               value={language.id}
               onChange={handleLanguageChange}
               className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block w-40 p-2"
+              disabled={isInRoom && !currentUser?.accessLevel === 'owner'}
             >
               {languageOptions.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -113,8 +148,12 @@ function Navbar({
           {/* Run Button */}
           <button
             onClick={onRunCode}
-            disabled={isLoading}
-            className={`px-4 py-2 rounded-md flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+            disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
+            className={`px-4 py-2 rounded-md flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${
+              isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))
+                ? 'opacity-70 cursor-not-allowed'
+                : ''
+            }`}
             title="Run code (Ctrl+Enter)"
           >
             {isLoading ? (
@@ -135,8 +174,12 @@ function Navbar({
         {/* Mobile Run Button (always visible) */}
         <button
           onClick={handleRunClick}
-          disabled={isLoading}
-          className={`md:hidden px-3 py-1.5 rounded-md flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+          disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
+          className={`md:hidden px-3 py-1.5 rounded-md flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${
+            isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))
+              ? 'opacity-70 cursor-not-allowed'
+              : ''
+          }`}
           title="Run code"
         >
           {isLoading ? (
@@ -149,6 +192,46 @@ function Navbar({
 
       {/* Mobile Menu Dropdown */}
       <div className={`md:hidden ${menuOpen ? 'block' : 'hidden'} pt-3 pb-2 space-y-3`}>
+        {/* Room collaboration buttons for mobile */}
+        <div className="px-2 space-y-2">
+          {!isInRoom ? (
+            <button
+              onClick={() => {
+                onJoinRoom();
+                setMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Join Room
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  onOpenUserPanel();
+                  setMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Users ({currentUser?.name})
+              </button>
+              
+              <button
+                onClick={() => {
+                  onLeaveRoom();
+                  setMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Leave Room
+              </button>
+            </>
+          )}
+        </div>
+    
         {/* Mobile Language Selector */}
         <div className="flex items-center p-2">
           <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
@@ -156,6 +239,7 @@ function Navbar({
             value={language.id}
             onChange={handleLanguageChange}
             className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 flex-1 p-2"
+            disabled={isInRoom && !currentUser?.accessLevel === 'owner'}
           >
             {languageOptions.map((option) => (
               <option key={option.id} value={option.id}>

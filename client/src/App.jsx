@@ -2,15 +2,24 @@ import { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import CodeEditor from './components/CodeEditor';
 import OutputPanel from './components/OutputPanel';
+import UserPanel from './components/UserPanel';
+import RoomJoinModal from './components/RoomJoinModal';
 import { languageOptions } from './constants/languageOptions';
-import api from './utils/api'; // Import the api utility instead of axios
+import { RoomProvider, useRoom } from './contexts/RoomContext';
+import api, { getSocket, initializeSocket } from './utils/api';
 import './App.css';
 
-function App() {
-  // Get the saved language from localStorage or use the default
+function CollaborativeApp() {
+  const { 
+    isInRoom, 
+    currentUser, 
+    checkPermission, 
+    leaveRoom,
+    roomId
+  } = useRoom();
+  
   const [language, setLanguage] = useState(() => {
     const savedLanguageId = localStorage.getItem('selectedLanguage');
-    // Find the language in options or default to first language
     return savedLanguageId 
       ? languageOptions.find(lang => lang.id === savedLanguageId) || languageOptions[0]
       : languageOptions[0];
@@ -27,27 +36,25 @@ function App() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [sessionId] = useState('default-session');
+  const [sessionId, setSessionId] = useState('default-session');
   const [activeTab, setActiveTab] = useState('output');
   const [autoSave, setAutoSave] = useState(() => {
     return localStorage.getItem('autoSave') === 'true';
   });
 
-  // Add state for mobile/tablet view to track which panel is visible
-  const [mobileView, setMobileView] = useState('code'); // 'code' or 'output'
-
-  // Add a way to detect mobile devices
+  const [mobileView, setMobileView] = useState('code');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Toggle between code and output panels on mobile
+  const [isUserPanelOpen, setIsUserPanelOpen] = useState(false);
+  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+  const [socket, setSocket] = useState(null);
+
   const toggleMobileView = () => {
     setMobileView(prev => prev === 'code' ? 'output' : 'code');
   };
 
-  // Update mobile view based on screen size
   useEffect(() => {
     const handleResize = () => {
-      // Reset to default view when returning to desktop layout
       if (window.innerWidth >= 768) {
         setMobileView('code');
       }
@@ -65,23 +72,19 @@ function App() {
     };
   }, []);
   
-  // Save language selection to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('selectedLanguage', language.id);
   }, [language]);
 
-  // Toggle auto-save functionality
   const toggleAutoSave = () => {
     const newAutoSave = !autoSave;
     setAutoSave(newAutoSave);
     localStorage.setItem('autoSave', newAutoSave.toString());
     
-    // If turning on auto-save, immediately save the current code
     if (newAutoSave && code) {
       localStorage.setItem(`code_${language.id}`, code);
       console.log(`Code saved for ${language.id}: ${code.substring(0, 30)}...`);
     } else if (!newAutoSave) {
-      // If turning off auto-save, we don't remove code until language changes
       console.log('Auto-save disabled');
     }
   };
@@ -89,42 +92,73 @@ function App() {
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
-    
-    // Apply theme to HTML element for global CSS variables and tailwind dark mode
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
     document.body.dataset.theme = newTheme;
-    
-    // Set theme in local storage
     localStorage.setItem('theme', newTheme);
-    
-    // Apply theme color meta tag for mobile devices
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
       metaThemeColor.setAttribute('content', newTheme === 'dark' ? '#1a1b26' : '#ffffff');
     }
-    
-    // Force a reflow to ensure all elements update
     document.body.style.display = 'none';
     setTimeout(() => {
       document.body.style.display = '';
     }, 5);
   };
 
-  // Ensure theme is properly applied on initial load
   useEffect(() => {
-    // Apply dark mode class based on current theme state
     document.documentElement.classList.toggle('dark', theme === 'dark');
     document.body.dataset.theme = theme;
-    
-    // Update theme color meta tag
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
       metaThemeColor.setAttribute('content', theme === 'dark' ? '#1a1b26' : '#ffffff');
     }
   }, [theme]);
 
+  useEffect(() => {
+    if (isInRoom && roomId) {
+      const socketInstance = getSocket();
+      setSocket(socketInstance);
+      
+      setSessionId(roomId);
+      
+      socketInstance.on('code-update', (data) => {
+        if (data.roomId === roomId) {
+          setCode(data.code);
+        }
+      });
+      
+      socketInstance.on('output-update', (data) => {
+        if (data.roomId === roomId) {
+          setOutput(data.output);
+          setInput(data.input);
+          setActiveTab('output');
+        }
+      });
+      
+      socketInstance.on('language-change', (data) => {
+        if (data.roomId === roomId) {
+          const newLanguage = languageOptions.find(lang => lang.id === data.languageId);
+          if (newLanguage) {
+            setLanguage(newLanguage);
+          }
+        }
+      });
+      
+      return () => {
+        socketInstance.off('code-update');
+        socketInstance.off('output-update');
+        socketInstance.off('language-change');
+      };
+    } else {
+      setSessionId('default-session');
+    }
+  }, [isInRoom, roomId]);
+
   const handleLanguageChange = (newLanguage) => {
-    // If auto-save is enabled, save the current code before switching
+    if (isInRoom && !checkPermission('CHANGE_LANGUAGE')) {
+      return;
+    }
+    
     if (autoSave && code) {
       localStorage.setItem(`code_${language.id}`, code);
     }
@@ -132,7 +166,6 @@ function App() {
     setLanguage(newLanguage);
     localStorage.setItem('selectedLanguage', newLanguage.id);
     
-    // Get the code for the new language after changing
     const savedCode = autoSave ? localStorage.getItem(`code_${newLanguage.id}`) : null;
     if (savedCode) {
       setCode(savedCode);
@@ -140,18 +173,42 @@ function App() {
       const defaultCode = CodeEditor.getLanguageDefaultCode(newLanguage.value);
       setCode(defaultCode);
     }
+
+    if (isInRoom && socket) {
+      socket.emit('language-change', {
+        roomId,
+        userId: currentUser.id,
+        languageId: newLanguage.id
+      });
+    }
+  };
+
+  const handleCodeChange = (newCode) => {
+    if (newCode !== undefined && newCode !== null) {
+      setCode(newCode);
+      
+      if (isInRoom && socket && checkPermission('EDIT_CODE')) {
+        socket.emit('code-change', {
+          roomId,
+          userId: currentUser.id,
+          code: newCode
+        });
+      }
+    }
   };
 
   const handleRunCode = async () => {
-    // Don't run if already running
     if (loading) return;
     
-    // On mobile, switch to output view after running code
+    if (isInRoom && !checkPermission('RUN_CODE')) {
+      setError("You don't have permission to run code");
+      return;
+    }
+    
     if (window.innerWidth < 768 && mobileView === 'code') {
       setMobileView('output');
     }
     
-    // Automatically switch to output tab if currently on input tab
     if (activeTab === 'input') {
       setActiveTab('output');
     }
@@ -159,21 +216,26 @@ function App() {
     setError(null);
     try {
       setLoading(true);
-      // Use the api utility for making the request
       const response = await api.execute.runCode(sessionId, { 
         code, 
         language: language.id, 
         input 
       });
       setOutput(response.data);
+
+      if (isInRoom && socket) {
+        socket.emit('output-update', {
+          roomId,
+          userId: currentUser.id,
+          output: response.data,
+          input
+        });
+      }
     } catch (error) {
       console.error('Error executing code:', error);
-      
-      // Error is now standardized by our API utility
       const errorMessage = error.message || 
                           error.details?.message || 
                           'An error occurred while executing your code.';
-      
       setOutput(null);
       setError(errorMessage);
     } finally {
@@ -181,10 +243,8 @@ function App() {
     }
   };
 
-  // Handle keyboard shortcuts (Ctrl+Enter to run code)
   useEffect(() => {
     const handleKeyDown = (event) => {
-      // Check for Ctrl+Enter (or Cmd+Enter on Mac)
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
         event.preventDefault();
         handleRunCode();
@@ -193,9 +253,8 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [code, language.id, input, loading]);
+  }, [code, language.id, input, loading, isInRoom, currentUser?.accessLevel]);
 
-  // Initial load of code from localStorage or default
   useEffect(() => {
     let codeToUse;
     
@@ -216,19 +275,19 @@ function App() {
     setCode(codeToUse);
   }, []);
 
-  // Save code to localStorage when it changes and autoSave is enabled
   useEffect(() => {
-    const saveCode = () => {
-      if (autoSave && code && language) {
-        localStorage.setItem(`code_${language.id}`, code);
-        console.log(`Auto-saving code for ${language.id}`);
-      }
-    };
-    
-    // Use a debounced save to avoid excessive writes
-    const timeoutId = setTimeout(saveCode, 500);
-    return () => clearTimeout(timeoutId);
-  }, [code, language.id, autoSave]);
+    if (!isInRoom) {
+      const saveCode = () => {
+        if (autoSave && code && language) {
+          localStorage.setItem(`code_${language.id}`, code);
+          console.log(`Auto-saving code for ${language.id}`);
+        }
+      };
+      
+      const timeoutId = setTimeout(saveCode, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [code, language?.id, autoSave, isInRoom]);
 
   return (
     <div className={`h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${theme === 'dark' ? 'dark-mode' : 'light-mode'}`}>
@@ -244,9 +303,13 @@ function App() {
         isLoading={loading}
         mobileView={mobileView}
         toggleMobileView={toggleMobileView}
+        isInRoom={isInRoom}
+        currentUser={currentUser}
+        onOpenUserPanel={() => setIsUserPanelOpen(true)}
+        onLeaveRoom={leaveRoom}
+        onJoinRoom={() => setIsRoomModalOpen(true)}
       />
       
-      {/* Mobile panel toggle buttons (visible only on small screens) */}
       <div className="md:hidden flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <button
           onClick={() => setMobileView('code')}
@@ -271,7 +334,6 @@ function App() {
       </div>
       
       <div className="flex flex-1 overflow-hidden">
-        {/* Code Editor - Full width on desktop, conditionally visible on mobile */}
         <div 
           className={`md:w-3/5 w-full h-full border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
             mobileView === 'output' ? 'hidden md:block' : 'block'
@@ -279,14 +341,20 @@ function App() {
         >
           <CodeEditor
             code={code}
-            setCode={setCode}
+            setCode={handleCodeChange}
             language={language.value}
             theme={theme}
             onRunCode={handleRunCode}
+            readOnly={isInRoom && !checkPermission('EDIT_CODE')}
           />
+          
+          {isInRoom && !checkPermission('EDIT_CODE') && (
+            <div className="absolute top-2 right-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs px-2 py-1 rounded-md">
+              Read-only mode
+            </div>
+          )}
         </div>
         
-        {/* Output Panel - 40% width on desktop, conditionally visible on mobile */}
         <div 
           className={`md:w-2/5 w-full h-full transition-all duration-300 ${
             mobileView === 'code' ? 'hidden md:block' : 'block'
@@ -300,10 +368,31 @@ function App() {
             error={error}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+            readOnly={isInRoom && !checkPermission('RUN_CODE')}
           />
         </div>
+        
+        {isInRoom && (
+          <UserPanel 
+            isOpen={isUserPanelOpen} 
+            onClose={() => setIsUserPanelOpen(false)} 
+          />
+        )}
       </div>
+      
+      <RoomJoinModal 
+        isOpen={isRoomModalOpen} 
+        onClose={() => setIsRoomModalOpen(false)}
+      />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <RoomProvider>
+      <CollaborativeApp />
+    </RoomProvider>
   );
 }
 

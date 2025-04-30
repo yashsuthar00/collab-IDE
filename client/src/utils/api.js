@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { v4 as uuidv4 } from 'uuid';
+import { getFromStorage } from './storage';
 
 // Determine base URL based on environment
 const getBaseUrl = () => {
@@ -63,34 +65,73 @@ const api = {
     logout: () => apiClient.post('/api/auth/logout'),
   },
   
-  // For future collaboration features
+  // Enhanced collaboration features
   collaboration: {
+    // Get room details
+    getRoomDetails: (roomId) => apiClient.get(`/api/rooms/${roomId}`),
+    
+    // Create a new room
+    createRoom: (roomData) => apiClient.post('/api/rooms', roomData),
+    
+    // Update room settings
+    updateRoomSettings: (roomId, settings) => apiClient.put(`/api/rooms/${roomId}/settings`, settings),
+    
+    // Get users in a room
+    getRoomUsers: (roomId) => apiClient.get(`/api/rooms/${roomId}/users`),
+    
+    // Update user permissions
+    updateUserAccess: (roomId, userId, accessLevel) => 
+      apiClient.put(`/api/rooms/${roomId}/users/${userId}/access`, { accessLevel }),
+      
+    // Remove user from room
+    removeUser: (roomId, userId) => apiClient.delete(`/api/rooms/${roomId}/users/${userId}`),
+    
+    // Join an existing room
     joinSession: (sessionId) => apiClient.get(`/api/sessions/${sessionId}`),
     createSession: (data) => apiClient.post('/api/sessions', data),
   },
 };
 
-// Socket.io integration (to be implemented in the future)
+// Enhanced Socket.io integration for real-time collaboration
 let socket = null;
 
 export const initializeSocket = () => {
+  if (socket && socket.connected) return socket;
+  
   const socketUrl = import.meta.env.PROD 
     ? import.meta.env.VITE_REACT_APP_SOCKET_URL || 'wss://api.collab-ide.com'
     : 'ws://localhost:5000';
-    
+  
+  const userName = getFromStorage('user_name') || `User-${uuidv4().slice(0, 5)}`;
+  
   socket = io(socketUrl, {
     transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
+    query: { userName }
   });
   
+  // Socket event handlers
   socket.on('connect', () => {
     console.log('Socket connected:', socket.id);
+    
+    // Re-join room if we were in one
+    const currentRoom = getFromStorage('current_room');
+    if (currentRoom) {
+      socket.emit('rejoin-room', { 
+        roomId: currentRoom,
+        userName
+      });
+    }
   });
   
   socket.on('disconnect', () => {
     console.log('Socket disconnected');
+  });
+  
+  socket.on('error', (error) => {
+    console.error('Socket error:', error);
   });
   
   return socket;
@@ -101,6 +142,12 @@ export const getSocket = () => {
     return initializeSocket();
   }
   return socket;
+};
+
+// Helper function to generate room invite link
+export const generateRoomLink = (roomId) => {
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/room/${roomId}`;
 };
 
 export default api;
