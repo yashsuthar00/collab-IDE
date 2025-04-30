@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Users, X, Plus, LogIn, AlertCircle } from 'lucide-react';
 import { useRoom } from '../contexts/RoomContext';
 
 const RoomJoinModal = ({ isOpen, onClose }) => {
+  // Component state
   const [mode, setMode] = useState('join'); // 'join' or 'create'
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
   const [roomName, setRoomName] = useState('');
   const [localError, setLocalError] = useState(null);
+  const [wasSubmitted, setWasSubmitted] = useState(false);
   
-  const { joinRoom, createRoom, loading, error } = useRoom();
+  // Get room context values
+  const { joinRoom, createRoom, loading, error, isInRoom } = useRoom();
   
   // Reset local error when switching modes
   useEffect(() => {
@@ -18,73 +21,83 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
   
   // Load user name from localStorage if available
   useEffect(() => {
-    const savedUserName = localStorage.getItem('user_name');
-    if (savedUserName) {
-      setUserName(savedUserName);
+    if (isOpen) {
+      const savedUserName = localStorage.getItem('user_name');
+      if (savedUserName) {
+        setUserName(savedUserName);
+      }
+      // Reset submission status when modal opens
+      setWasSubmitted(false);
     }
   }, [isOpen]);
   
-  // Handle form submission - this was causing the page refresh
-  const handleSubmit = (e) => {
-    // Explicitly prevent default behavior with high priority
-    if (e && e.preventDefault) {
+  // Handle form submission with proper event prevention
+  const handleSubmit = useCallback((e) => {
+    // Important: Make sure we're preventing default behavior on the event
+    if (e) {
       e.preventDefault();
-    }
-    if (e && e.stopPropagation) {
       e.stopPropagation();
     }
     
+    // Clear previous error
     setLocalError(null);
     
-    // Validate form
+    // Validate form inputs
     if (!userName.trim()) {
       setLocalError('Please enter your name');
       return;
     }
     
-    if (mode === 'join') {
-      if (!roomId.trim()) {
-        setLocalError('Please enter a room ID');
-        return;
-      }
-      console.log(`Submitting join request: ${roomId.trim()}, ${userName.trim()}`);
-      joinRoom(roomId.trim(), userName.trim());
-    } else if (mode === 'create') {
-      console.log(`Submitting create request: ${userName.trim()}, ${roomName.trim()}`);
-      createRoom(userName.trim(), roomName.trim());
+    if (mode === 'join' && !roomId.trim()) {
+      setLocalError('Please enter a room ID');
+      return;
     }
     
-    // Prevent any potential default behavior that wasn't caught
-    return false;
-  };
+    // Track that we've attempted a submission
+    setWasSubmitted(true);
+    
+    // Process based on mode
+    if (mode === 'join') {
+      console.log(`Joining room: ${roomId.trim()}, as: ${userName.trim()}`);
+      joinRoom(roomId.trim(), userName.trim());
+    } else {
+      console.log(`Creating room as: ${userName.trim()}, name: ${roomName.trim()}`);
+      createRoom(userName.trim(), roomName.trim());
+    }
+  }, [mode, userName, roomId, roomName, joinRoom, createRoom]);
   
-  // Handle button click separately from form submission
-  const handleButtonClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleSubmit(e);
-    return false;
-  };
-  
-  // Close modal on successful join/create (when not loading and no error)
+  // Close modal only when successfully joined/created room
   useEffect(() => {
-    if (!loading && !error && isOpen) {
+    // Only check for successful completion if a submission was attempted
+    if (wasSubmitted && !loading && !error && isInRoom) {
+      console.log("Room join/create successful - closing modal");
       onClose();
     }
-  }, [loading, error, isOpen, onClose]);
+  }, [wasSubmitted, loading, error, isInRoom, onClose]);
   
+  // Don't render if not open
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+      onClick={(e) => e.stopPropagation()} // Stop clicks on the backdrop from closing the modal
+    >
+      <div 
+        className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md"
+        onClick={(e) => e.stopPropagation()} // Stop propagation for clicks within the modal
+      >
         <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {mode === 'join' ? 'Join Room' : 'Create Room'}
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
             className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
           >
             <X className="w-5 h-5" />
@@ -100,7 +113,10 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
               }`}
-              onClick={() => setMode('join')}
+              onClick={(e) => {
+                e.preventDefault();
+                setMode('join');
+              }}
             >
               <div className="flex items-center justify-center">
                 <LogIn className="w-4 h-4 mr-2" />
@@ -114,7 +130,10 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
               }`}
-              onClick={() => setMode('create')}
+              onClick={(e) => {
+                e.preventDefault();
+                setMode('create');
+              }}
             >
               <div className="flex items-center justify-center">
                 <Plus className="w-4 h-4 mr-2" />
@@ -123,7 +142,8 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
             </button>
           </div>
           
-          <div> {/* Changed from <form> to <div> to avoid any form submission */}
+          {/* Form fields without an actual <form> element to avoid submission issues */}
+          <div>
             {/* Display error message if any */}
             {(error || localError) && (
               <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-md mb-4 text-sm flex items-start">
@@ -142,6 +162,12 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
                 id="userName"
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
                 placeholder="Enter your name"
                 required
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -158,6 +184,12 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
                   id="roomId"
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSubmit(e);
+                    }
+                  }}
                   placeholder="Enter room ID"
                   required
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -173,6 +205,12 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
                   id="roomName"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSubmit(e);
+                    }
+                  }}
                   placeholder="Enter room name"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
@@ -181,8 +219,12 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
             
             <div className="mt-6">
               <button
-                type="button" // Explicitly set as button type
-                onClick={handleButtonClick}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSubmit(e);
+                }}
                 disabled={loading}
                 className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                   loading ? 'opacity-70 cursor-not-allowed' : ''
