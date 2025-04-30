@@ -138,6 +138,7 @@ export const RoomProvider = ({ children }) => {
     
     // Socket event listeners for room management
     socketInstance.on('room-joined', (data) => {
+      console.log("Room joined event received:", data);
       dispatch({
         type: ACTION_TYPES.JOIN_ROOM_SUCCESS,
         payload: {
@@ -150,9 +151,18 @@ export const RoomProvider = ({ children }) => {
         },
       });
       saveToStorage('current_room', data.roomId);
+      
+      // Handle initial code if provided
+      if (data.code) {
+        // We'll emit an event for the App component to capture in its own effect
+        window.dispatchEvent(new CustomEvent('room-code-received', { 
+          detail: { code: data.code }
+        }));
+      }
     });
     
     socketInstance.on('room-error', (error) => {
+      console.error("Room error received:", error);
       dispatch({
         type: ACTION_TYPES.JOIN_ROOM_ERROR,
         payload: error.message,
@@ -228,6 +238,7 @@ export const RoomProvider = ({ children }) => {
       const userName = getFromStorage('user_name');
       
       if (roomId && userName && socket) {
+        console.log(`Attempting to rejoin existing room: ${roomId} as ${userName}`);
         dispatch({ type: ACTION_TYPES.JOIN_ROOM_START });
         socket.emit('rejoin-room', { roomId, userName });
       }
@@ -240,16 +251,24 @@ export const RoomProvider = ({ children }) => {
   
   // Room context actions
   const joinRoom = (roomId, userName) => {
-    if (!socket) return;
+    if (!socket) {
+      console.error("Cannot join room: Socket not initialized");
+      return;
+    }
     
+    console.log(`Joining room ${roomId} as ${userName}`);
     dispatch({ type: ACTION_TYPES.JOIN_ROOM_START });
     saveToStorage('user_name', userName);
     socket.emit('join-room', { roomId, userName });
   };
   
   const createRoom = (userName, roomName = '') => {
-    if (!socket) return;
+    if (!socket) {
+      console.error("Cannot create room: Socket not initialized");
+      return;
+    }
     
+    console.log(`Creating room as ${userName} with name ${roomName || '(untitled)'}`);
     dispatch({ type: ACTION_TYPES.JOIN_ROOM_START });
     saveToStorage('user_name', userName);
     socket.emit('create-room', { userName, roomName });

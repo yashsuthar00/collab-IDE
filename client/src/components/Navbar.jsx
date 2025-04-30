@@ -25,7 +25,6 @@ function Navbar({
     const selectedLanguage = languageOptions.find(lang => lang.id === e.target.value);
     if (selectedLanguage) {
       setLanguage(selectedLanguage);
-      // Close menu on mobile when language is changed
       setMenuOpen(false);
     }
   };
@@ -36,23 +35,24 @@ function Navbar({
 
   const handleRunClick = () => {
     onRunCode();
-    // If run button is clicked on mobile and in code view, switch to output view
     if (window.innerWidth < 768 && mobileView === 'code') {
       toggleMobileView();
     }
-    // Close menu
     setMenuOpen(false);
   };
 
-  // Re-render when theme changes to ensure UI updates
-  useEffect(() => {
-    // Force re-render on theme change
-  }, [theme]);
+  const handleJoinRoom = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenuOpen(false);
+    onJoinRoom();
+  };
+
+  useEffect(() => {}, [theme]);
 
   return (
     <nav className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 px-4 shadow-sm">
       <div className="container mx-auto flex items-center justify-between">
-        {/* Logo and Mobile Menu Button */}
         <div className="flex items-center">
           <div className="flex items-center space-x-2 text-xl font-bold text-blue-600 dark:text-blue-400">
             <Code className="w-6 h-6" />
@@ -60,7 +60,6 @@ function Navbar({
             <span className="sm:hidden">IDE</span>
           </div>
           
-          {/* Mobile Menu Button */}
           <button 
             className="ml-4 p-1 rounded-md md:hidden hover:bg-gray-100 dark:hover:bg-gray-800"
             onClick={toggleMenu}
@@ -69,12 +68,11 @@ function Navbar({
           </button>
         </div>
 
-        {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-3">
-          {/* Room collaboration buttons */}
           {!isInRoom ? (
             <button
-              onClick={onJoinRoom}
+              onClick={handleJoinRoom}
+              type="button"
               className="flex items-center px-3 py-1.5 rounded-md text-sm border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
             >
               <UserPlus className="w-4 h-4 mr-1" />
@@ -100,7 +98,6 @@ function Navbar({
             </>
           )}
 
-          {/* Language Selector */}
           <div className="flex items-center">
             <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
             <select
@@ -117,7 +114,6 @@ function Navbar({
             </select>
           </div>
 
-          {/* Auto-save Toggle */}
           <button
             onClick={toggleAutoSave}
             className={`flex items-center px-3 py-1.5 rounded-md text-sm border ${
@@ -132,7 +128,6 @@ function Navbar({
             {autoSave ? 'Auto-save On' : 'Auto-save Off'}
           </button>
           
-          {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -145,7 +140,6 @@ function Navbar({
             }
           </button>
 
-          {/* Run Button */}
           <button
             onClick={onRunCode}
             disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
@@ -171,7 +165,6 @@ function Navbar({
           </button>
         </div>
 
-        {/* Mobile Run Button (always visible) */}
         <button
           onClick={handleRunClick}
           disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
@@ -190,16 +183,12 @@ function Navbar({
         </button>
       </div>
 
-      {/* Mobile Menu Dropdown */}
       <div className={`md:hidden ${menuOpen ? 'block' : 'hidden'} pt-3 pb-2 space-y-3`}>
-        {/* Room collaboration buttons for mobile */}
         <div className="px-2 space-y-2">
           {!isInRoom ? (
             <button
-              onClick={() => {
-                onJoinRoom();
-                setMenuOpen(false);
-              }}
+              onClick={handleJoinRoom}
+              type="button"
               className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
             >
               <UserPlus className="w-4 h-4 mr-2" />
@@ -212,6 +201,7 @@ function Navbar({
                   onOpenUserPanel();
                   setMenuOpen(false);
                 }}
+                type="button"
                 className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
               >
                 <Users className="w-4 h-4 mr-2" />
@@ -223,6 +213,7 @@ function Navbar({
                   onLeaveRoom();
                   setMenuOpen(false);
                 }}
+                type="button"
                 className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
               >
                 <LogOut className="w-4 h-4 mr-2" />
@@ -232,7 +223,6 @@ function Navbar({
           )}
         </div>
     
-        {/* Mobile Language Selector */}
         <div className="flex items-center p-2">
           <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
           <select
@@ -249,7 +239,6 @@ function Navbar({
           </select>
         </div>
 
-        {/* Mobile Theme and Auto-save */}
         <div className="flex px-2 space-x-2">
           <button
             onClick={toggleTheme}

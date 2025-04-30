@@ -36,6 +36,9 @@ export const createRoom = async (userName, initialLanguage = 'javascript', initi
       }]
     };
 
+    console.log("Creating room with ID:", roomId);
+    console.log("Room data:", roomData);
+
     // Store user details in local storage
     saveToStorage('user_name', userName);
     saveToStorage('current_room', roomId);
@@ -43,8 +46,11 @@ export const createRoom = async (userName, initialLanguage = 'javascript', initi
     // Create room on server
     await api.collaboration.createRoom(roomData);
     
-    // Join room socket
-    socket.emit('join-room', { roomId, userName, accessLevel: ACCESS_LEVELS.OWNER });
+    // Socket should handle joining after creation
+    socket.emit('create-room', { 
+      userName, 
+      roomName: `${userName}'s Room` 
+    });
     
     return { success: true, roomId, roomData };
   } catch (error) {
@@ -56,13 +62,17 @@ export const createRoom = async (userName, initialLanguage = 'javascript', initi
 // Join an existing room
 export const joinRoom = async (roomId, userName) => {
   try {
+    console.log(`Attempting to join room ${roomId} as ${userName}`);
+    
     // Initialize socket connection
     const socket = initializeSocket();
     
-    // Fetch room data from server
+    // Fetch room data from server to check if room exists
     const response = await api.collaboration.getRoomDetails(roomId);
+    console.log("Room check response:", response);
     
     if (!response.data || !response.data.roomExists) {
+      console.error(`Room ${roomId} not found on server`);
       return { success: false, error: 'Room not found' };
     }
     
@@ -75,6 +85,7 @@ export const joinRoom = async (roomId, userName) => {
     
     // Join room socket
     socket.emit('join-room', { roomId, userName, accessLevel });
+    console.log(`Socket emit join-room: ${roomId}, ${userName}, ${accessLevel}`);
     
     return { 
       success: true, 

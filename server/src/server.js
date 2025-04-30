@@ -136,6 +136,9 @@ app.post('/api/rooms', (req, res) => {
       users: users || []
     });
     
+    console.log(`Room created via API: ${id}`);
+    console.log(`Active rooms: ${Array.from(rooms.keys()).join(', ')}`);
+    
     res.status(201).json({ success: true, roomId: id });
   } catch (error) {
     console.error('Error creating room:', error);
@@ -146,6 +149,9 @@ app.post('/api/rooms', (req, res) => {
 // Get room details
 app.get('/api/rooms/:roomId', (req, res) => {
   const { roomId } = req.params;
+  
+  console.log(`Checking for room: ${roomId}`);
+  console.log(`Available rooms: ${Array.from(rooms.keys()).join(', ')}`);
   
   if (!rooms.has(roomId)) {
     return res.status(404).json({ 
@@ -191,7 +197,8 @@ io.on('connection', (socket) => {
           isActive: true,
           joinedAt: new Date().toISOString()
         }],
-        owner: socket.id
+        owner: socket.id,
+        code: '' // Initialize with empty code
       };
       
       // Store room
@@ -211,6 +218,7 @@ io.on('connection', (socket) => {
       });
       
       console.log(`Room created: ${roomId} by ${userName} (${socket.id})`);
+      console.log(`Active rooms: ${Array.from(rooms.keys()).join(', ')}`);
     } catch (error) {
       console.error('Error creating room:', error);
       socket.emit('room-error', { message: 'Failed to create room' });
@@ -220,12 +228,17 @@ io.on('connection', (socket) => {
   // Join an existing room
   socket.on('join-room', ({ roomId, userName, accessLevel = ACCESS_LEVELS.VIEWER }) => {
     try {
+      console.log(`User ${userName} trying to join room ${roomId}`);
+      console.log(`Available rooms: ${Array.from(rooms.keys()).join(', ')}`);
+      
       // Check if room exists
       if (!rooms.has(roomId)) {
+        console.log(`Room ${roomId} not found`);
         return socket.emit('room-error', { message: 'Room not found' });
       }
       
       const room = rooms.get(roomId);
+      console.log(`Found room ${roomId} with ${room.users.length} users`);
       
       // Check if user is already in room
       const existingUser = room.users.find(user => user.name === userName);
@@ -234,6 +247,7 @@ io.on('connection', (socket) => {
         // Update existing user
         existingUser.id = socket.id;
         existingUser.isActive = true;
+        console.log(`User ${userName} reconnected to room ${roomId}`);
       } else {
         // Add new user
         room.users.push({
@@ -243,6 +257,7 @@ io.on('connection', (socket) => {
           isActive: true,
           joinedAt: new Date().toISOString()
         });
+        console.log(`Added new user ${userName} to room ${roomId}`);
       }
       
       // Join socket room
@@ -258,7 +273,8 @@ io.on('connection', (socket) => {
         userId: socket.id,
         userName,
         users: room.users,
-        accessLevel: user.accessLevel
+        accessLevel: user.accessLevel,
+        code: room.code // Send current room code
       });
       
       // Notify other users in room

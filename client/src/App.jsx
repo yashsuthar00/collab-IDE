@@ -154,6 +154,20 @@ function CollaborativeApp() {
     }
   }, [isInRoom, roomId]);
 
+  useEffect(() => {
+    const handleRoomCodeReceived = (event) => {
+      if (event.detail && event.detail.code) {
+        setCode(event.detail.code);
+        console.log("Received initial code from room");
+      }
+    };
+    
+    window.addEventListener('room-code-received', handleRoomCodeReceived);
+    return () => {
+      window.removeEventListener('room-code-received', handleRoomCodeReceived);
+    };
+  }, []);
+
   const handleLanguageChange = (newLanguage) => {
     if (isInRoom && !checkPermission('CHANGE_LANGUAGE')) {
       return;
