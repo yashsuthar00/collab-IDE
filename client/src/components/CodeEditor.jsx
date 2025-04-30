@@ -1,15 +1,303 @@
-import { useRef, useEffect, useState } from 'react';
-import Editor from '@monaco-editor/react';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import Editor, { useMonaco } from '@monaco-editor/react';
 import SpecialCharactersBar from './SpecialCharactersBar';
+import { getSocket } from '../utils/api';
+import { useRoom } from '../contexts/RoomContext';
+import { debounce } from '../utils/helpers';
+
+// Helper function to generate random colors for user cursors
+const getRandomColor = () => {
+  const colors = [
+    '#FF6B6B', '#4ECDC4', '#FFE66D', '#1A535C', '#F9C80E', 
+    '#FF8C42', '#A4036F', '#048BA8', '#16DB93', '#EFBCD5'
+  ];
+  return colors[Math.floor(Math.random() * colors.length)];
+};
 
 function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = false }) {
   const editorRef = useRef(null);
-  // Always set showCharsBar to true for mobile screens
+  const monacoRef = useRef(null);
+  const monaco = useMonaco();
+  const cursorsRef = useRef(new Map());
+  const decorationsRef = useRef([]);
+  const userColorRef = useRef(getRandomColor());
+  
+  // Get room context
+  const { isInRoom, roomId, currentUser } = useRoom();
+  
   const [showCharsBar, setShowCharsBar] = useState(window.innerWidth < 1024);
   const [isEditorFocused, setIsEditorFocused] = useState(false);
   
+  // Store all remote user cursors
+  const [remoteCursors, setRemoteCursors] = useState(new Map());
+  
+  // Effect to handle socket events for collaborative editing
+  useEffect(() => {
+    if (!isInRoom || !editorRef.current) return;
+    
+    const socket = getSocket();
+    
+    // Listen for code updates from other users
+    socket.on('code-update', (data) => {
+      if (data.roomId === roomId && data.userId !== currentUser.id) {
+        // Store current cursor position
+        const currentPosition = editorRef.current.getPosition();
+        
+        // Apply the remote code change
+        editorRef.current.getModel().setValue(data.code);
+        
+        // Restore cursor position
+        if (currentPosition) {
+          editorRef.current.setPosition(currentPosition);
+        }
+      }
+    });
+    
+    // Listen for cursor position updates from other users
+    socket.on('cursor-update', (data) => {
+      if (data.roomId === roomId && data.userId !== currentUser.id && data.position) {
+        updateRemoteCursor(data.userId, data.position, data.userName);
+      }
+    });
+    
+    // Listen for selection updates from other users
+    socket.on('selection-update', (data) => {
+      if (data.roomId === roomId && data.userId !== currentUser.id && data.selection) {
+        updateRemoteSelection(data.userId, data.selection, data.userName);
+      }
+    });
+    
+    return () => {
+      socket.off('code-update');
+      socket.off('cursor-update');
+      socket.off('selection-update');
+    };
+  }, [isInRoom, roomId, currentUser?.id, editorRef.current]);
+  
+  // Function to update remote user cursor
+  const updateRemoteCursor = (userId, position, userName) => {
+    if (!editorRef.current || !monacoRef.current) return;
+    
+    // Get or create user color
+    if (!cursorsRef.current.has(userId)) {
+      cursorsRef.current.set(userId, {
+        color: getRandomColor(),
+        decorations: []
+      });
+    }
+    
+    const userCursor = cursorsRef.current.get(userId);
+    
+    // Remove previous decorations
+    if (userCursor.decorations.length) {
+      editorRef.current.deltaDecorations(userCursor.decorations, []);
+    }
+    
+    // Create cursor and label decorations
+    const cursorDecorations = [
+      {
+        range: new monacoRef.current.Range(
+          position.lineNumber,
+          position.column,
+          position.lineNumber,
+          position.column
+        ),
+        options: {
+          className: `remote-cursor-${userId}`,
+          hoverMessage: { value: userName || 'User' },
+          beforeContentClassName: 'remote-cursor-before',
+          afterContentClassName: 'remote-cursor-after',
+          zIndex: 10000
+        }
+      },
+      {
+        range: new monacoRef.current.Range(
+          position.lineNumber,
+          1,
+          position.lineNumber,
+          1
+        ),
+        options: {
+          beforeContentClassName: 'remote-cursor-name',
+          before: {
+            content: userName || 'User',
+            inlineClassName: `remote-cursor-name-text-${userId}`
+          }
+        }
+      }
+    ];
+    
+    // Add dynamic CSS for this user's cursor
+    addCursorStyle(userId, userCursor.color);
+    
+    // Apply decorations
+    userCursor.decorations = editorRef.current.deltaDecorations([], cursorDecorations);
+    
+    // Update cursors map
+    cursorsRef.current.set(userId, userCursor);
+  };
+  
+  // Function to update remote user selection
+  const updateRemoteSelection = (userId, selection, userName) => {
+    if (!editorRef.current || !monacoRef.current) return;
+    
+    // Get or create user color
+    if (!cursorsRef.current.has(userId)) {
+      cursorsRef.current.set(userId, {
+        color: getRandomColor(),
+        decorations: []
+      });
+    }
+    
+    const userCursor = cursorsRef.current.get(userId);
+    
+    // Remove previous decorations
+    if (userCursor.decorations.length) {
+      editorRef.current.deltaDecorations(userCursor.decorations, []);
+    }
+    
+    // Create selection decoration
+    const selectionDecorations = [
+      {
+        range: new monacoRef.current.Range(
+          selection.startLineNumber,
+          selection.startColumn,
+          selection.endLineNumber,
+          selection.endColumn
+        ),
+        options: {
+          className: `remote-selection-${userId}`,
+          hoverMessage: { value: userName || 'User' }
+        }
+      },
+      {
+        range: new monacoRef.current.Range(
+          selection.endLineNumber,
+          1,
+          selection.endLineNumber,
+          1
+        ),
+        options: {
+          beforeContentClassName: 'remote-cursor-name',
+          before: {
+            content: userName || 'User',
+            inlineClassName: `remote-cursor-name-text-${userId}`
+          }
+        }
+      }
+    ];
+    
+    // Add dynamic CSS for this user's selection
+    addSelectionStyle(userId, userCursor.color);
+    
+    // Apply decorations
+    userCursor.decorations = editorRef.current.deltaDecorations([], selectionDecorations);
+    
+    // Update cursors map
+    cursorsRef.current.set(userId, userCursor);
+  };
+  
+  // Add dynamic CSS for user cursors
+  const addCursorStyle = (userId, color) => {
+    const styleId = `cursor-style-${userId}`;
+    let styleEl = document.getElementById(styleId);
+    
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    
+    styleEl.innerHTML = `
+      .remote-cursor-${userId} {
+        position: relative;
+      }
+      .remote-cursor-before {
+        position: absolute;
+        border-left: 2px solid ${color};
+        height: 18px;
+        width: 0;
+        z-index: 10000;
+      }
+      .remote-cursor-name-text-${userId} {
+        background-color: ${color};
+        color: white;
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 2px;
+        white-space: nowrap;
+        position: absolute;
+        margin-top: -22px;
+        z-index: 10001;
+      }
+    `;
+  };
+  
+  // Add dynamic CSS for user selections
+  const addSelectionStyle = (userId, color) => {
+    const styleId = `selection-style-${userId}`;
+    let styleEl = document.getElementById(styleId);
+    
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    
+    styleEl.innerHTML = `
+      .remote-selection-${userId} {
+        background-color: ${color}33;
+        border-radius: 2px;
+      }
+      .remote-cursor-name-text-${userId} {
+        background-color: ${color};
+        color: white;
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 2px;
+        white-space: nowrap;
+        position: absolute;
+        margin-top: -22px;
+        z-index: 10001;
+      }
+    `;
+  };
+  
+  // Debounced function to emit cursor position
+  const emitCursorPosition = useCallback(
+    debounce((position) => {
+      if (isInRoom && !readOnly) {
+        const socket = getSocket();
+        socket.emit('cursor-position', {
+          roomId,
+          userId: currentUser.id,
+          position,
+          userName: currentUser.name
+        });
+      }
+    }, 50),
+    [isInRoom, roomId, currentUser?.id, readOnly]
+  );
+  
+  // Debounced function to emit selection changes
+  const emitSelectionChange = useCallback(
+    debounce((selection) => {
+      if (isInRoom && !readOnly) {
+        const socket = getSocket();
+        socket.emit('selection-change', {
+          roomId,
+          userId: currentUser.id,
+          selection,
+          userName: currentUser.name
+        });
+      }
+    }, 50),
+    [isInRoom, roomId, currentUser?.id, readOnly]
+  );
+
   function handleEditorDidMount(editor, monaco) {
     editorRef.current = editor;
+    monacoRef.current = monaco;
     
     // Set editor options for better appearance
     monaco.editor.defineTheme('customDark', {
@@ -46,22 +334,42 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
 
     // Set read-only state
     editor.updateOptions({ readOnly });
+    
+    // Add cursor position change listener for collaborative editing
+    editor.onDidChangeCursorPosition((e) => {
+      if (isInRoom && !readOnly) {
+        emitCursorPosition(e.position);
+      }
+    });
+    
+    // Add selection change listener for collaborative editing
+    editor.onDidChangeCursorSelection((e) => {
+      if (isInRoom && !readOnly) {
+        emitSelectionChange(e.selection);
+      }
+    });
   }
 
-  // Handle code change with proper value
+  // Handle code change with proper value and collaboration
   const handleCodeChange = (newCode) => {
     if (newCode !== undefined && newCode !== null) {
       setCode(newCode);
+      
+      if (isInRoom && !readOnly && editorRef.current) {
+        const socket = getSocket();
+        socket.emit('code-change', {
+          roomId,
+          userId: currentUser.id,
+          code: newCode
+        });
+      }
     }
   };
 
   // Update theme when it changes
   useEffect(() => {
-    if (editorRef.current) {
-      const monaco = window.monaco;
-      if (monaco) {
-        monaco.editor.setTheme(theme === 'dark' ? 'customDark' : 'light');
-      }
+    if (editorRef.current && monacoRef.current) {
+      monacoRef.current.editor.setTheme(theme === 'dark' ? 'customDark' : 'light');
     }
   }, [theme]);
 
@@ -77,7 +385,6 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     const checkMobile = () => {
       const isMobileOrTablet = window.innerWidth < 1024;
       setShowCharsBar(isMobileOrTablet);
-      console.log("Device width:", window.innerWidth, "Show chars bar:", isMobileOrTablet);
     };
     
     // Initial check

@@ -189,3 +189,71 @@ html.dark .navbar-component {
   background-color: var(--navbar-bg);
   border-color: var(--border-color);
 }
+
+/* Collaborative editing cursor styles */
+.remote-cursor-name {
+  position: relative;
+  z-index: 10001;
+}
+
+.remote-cursor-name::before {
+  content: attr(data-content);
+  position: absolute;
+  white-space: nowrap;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  z-index: 10001;
+}
+
+/* Custom marker for other users' cursors */
+.other-user-cursor {
+  position: absolute;
+  width: 2px;
+  height: 18px;
+  animation: cursor-blink 1s infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Multi-cursor selection style */
+.multi-cursor-selection {
+  opacity: 0.3;
+  border-radius: 2px;
+}
+
+/* User color indicators in text */
+.user-text {
+  position: relative;
+  display: inline-block;
+}
+
+.user-text::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  transition: opacity 0.3s ease;
+}
+
+.user-text:hover::before {
+  content: attr(data-user);
+  position: absolute;
+  top: -20px;
+  left: 0;
+  background-color: inherit;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-size: 10px;
+  white-space: nowrap;
+}

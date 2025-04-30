@@ -348,6 +348,32 @@ io.on('connection', (socket) => {
     });
   });
   
+  // Handle cursor position updates
+  socket.on('cursor-position', ({ roomId, userId, position, userName }) => {
+    if (!rooms.has(roomId)) return;
+    
+    // Broadcast the cursor position to all other users in the room
+    socket.to(roomId).emit('cursor-update', {
+      roomId,
+      userId,
+      position,
+      userName
+    });
+  });
+  
+  // Handle selection updates
+  socket.on('selection-change', ({ roomId, userId, selection, userName }) => {
+    if (!rooms.has(roomId)) return;
+    
+    // Broadcast the selection to all other users in the room
+    socket.to(roomId).emit('selection-update', {
+      roomId,
+      userId,
+      selection,
+      userName
+    });
+  });
+  
   // Handle changes in language
   socket.on('language-change', ({ roomId, userId, languageId }) => {
     if (!rooms.has(roomId)) return;
