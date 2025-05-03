@@ -7,6 +7,12 @@ import RoomJoinModal from './components/RoomJoinModal';
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
 import api, { getSocket, initializeSocket } from './utils/api';
+import { 
+  createMainTour, 
+  createCollaborationTour, 
+  createInputPanelTour,
+  hasTourBeenSeen
+} from './utils/tours';
 import './App.css';
 
 function CollaborativeApp() {
@@ -303,6 +309,146 @@ function CollaborativeApp() {
     }
   }, [code, language?.id, autoSave, isInRoom]);
 
+  // Tour state management - improved approach
+  const [currentTour, setCurrentTour] = useState(null);
+  const [roomJoined, setRoomJoined] = useState(false);
+
+  // Initialize tours with proper checks
+  useEffect(() => {
+    // Check if this is first visit for main tour
+    if (!hasTourBeenSeen('main')) {
+      // First time visitor - wait a bit before showing tour
+      const timer = setTimeout(() => {
+        const tour = createMainTour();
+        setCurrentTour(tour);
+        tour.drive();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Show collaboration tour when joining a room for the first time
+  useEffect(() => {
+    // Track when user joins a room to show the tour
+    if (isInRoom && !roomJoined) {
+      setRoomJoined(true);
+      
+      // Check if user has seen the collab tour before
+      if (!hasTourBeenSeen('collab')) {
+        // Small delay to ensure room components are fully rendered
+        const timer = setTimeout(() => {
+          // Open the user panel first before starting the tour
+          setIsUserPanelOpen(true);
+          
+          // Then start the tour after a short delay to ensure panel is visible
+          setTimeout(() => {
+            const tour = createCollaborationTour();
+            setCurrentTour(tour);
+            tour.drive();
+            console.log("Starting collaboration tour from isInRoom effect");
+          }, 300);
+        }, 800);
+        
+        return () => clearTimeout(timer);
+      }
+    } else if (!isInRoom) {
+      // Reset room joined state when leaving a room
+      setRoomJoined(false);
+    }
+  }, [isInRoom, roomJoined]);
+
+  // Listen for room-joined events from socket to show tour immediately
+  useEffect(() => {
+    const handleRoomJoined = (event) => {
+      const freshJoin = event.detail?.freshJoin;
+      console.log("Room joined event detected:", event.detail);
+      
+      // Only show the tour if this is a fresh join (not a refresh/reconnect)
+      if (freshJoin && !hasTourBeenSeen('collab')) {
+        // Cancel any existing tours
+        if (currentTour) {
+          currentTour.destroy();
+        }
+        
+        const timer = setTimeout(() => {
+          // Open the user panel first
+          setIsUserPanelOpen(true);
+          
+          // Then start the tour after panel is open
+          setTimeout(() => {
+            const tour = createCollaborationTour();
+            setCurrentTour(tour);
+            tour.drive();
+            console.log("Starting collaboration tour from event");
+          }, 300);
+        }, 800);
+        
+        return () => clearTimeout(timer);
+      }
+    };
+    
+    window.addEventListener('room-joined-event', handleRoomJoined);
+    return () => {
+      window.removeEventListener('room-joined-event', handleRoomJoined);
+    };
+  }, [currentTour]);
+
+  // Show input panel tour when switching to input tab for the first time
+  useEffect(() => {
+    if (activeTab === 'input' && !hasTourBeenSeen('input')) {
+      const timer = setTimeout(() => {
+        const tour = createInputPanelTour();
+        setCurrentTour(tour);
+        tour.drive();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab]);
+
+  // Clean up any active tour when component unmounts
+  useEffect(() => {
+    return () => {
+      if (currentTour) {
+        currentTour.destroy();
+      }
+    };
+  }, [currentTour]);
+
+  // Handle tour start
+  const handleStartTour = () => {
+    // Destroy any existing tour
+    if (currentTour) {
+      currentTour.destroy();
+    }
+    
+    // Determine appropriate tour based on context
+    let tour;
+    if (isInRoom) {
+      tour = createCollaborationTour();
+    } else if (activeTab === 'input') {
+      tour = createInputPanelTour();
+    } else {
+      tour = createMainTour();
+    }
+    
+    setCurrentTour(tour);
+    tour.drive();
+  };
+
+  // Handle mobile view switching from tour events
+  useEffect(() => {
+    const handleViewSwitch = (e) => {
+      if (e.detail === 'code' || e.detail === 'output') {
+        setMobileView(e.detail);
+      }
+    };
+    
+    window.addEventListener('switch-mobile-view', handleViewSwitch);
+    return () => window.removeEventListener('switch-mobile-view', handleViewSwitch);
+  }, []);
+
   return (
     <div className={`h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${theme === 'dark' ? 'dark-mode' : 'light-mode'}`}>
       <Navbar 
@@ -322,6 +468,7 @@ function CollaborativeApp() {
         onOpenUserPanel={() => setIsUserPanelOpen(true)}
         onLeaveRoom={leaveRoom}
         onJoinRoom={() => setIsRoomModalOpen(true)}
+        onStartTour={handleStartTour}
       />
       
       <div className="md:hidden flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -349,6 +496,7 @@ function CollaborativeApp() {
       
       <div className="flex flex-1 overflow-hidden">
         <div 
+          id="code-editor"
           className={`md:w-3/5 w-full h-full border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
             mobileView === 'output' ? 'hidden md:block' : 'block'
           } ${isMobile ? 'pb-12' : ''}`}
@@ -364,6 +512,7 @@ function CollaborativeApp() {
         </div>
         
         <div 
+          id="output-panel"
           className={`md:w-2/5 w-full h-full transition-all duration-300 ${
             mobileView === 'code' ? 'hidden md:block' : 'block'
           } ${isMobile ? 'pb-12' : ''}`}
@@ -392,6 +541,19 @@ function CollaborativeApp() {
         isOpen={isRoomModalOpen} 
         onClose={() => setIsRoomModalOpen(false)}
       />
+
+      {/* Help button with fixed position and onClick handler */}
+      <button
+        id="fixed-help-button"
+        onClick={handleStartTour}
+        className="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-3 shadow-lg z-50"
+        aria-label="Show help tour"
+        title="Show interactive tutorial"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </button>
     </div>
   );
 }

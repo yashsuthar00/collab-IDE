@@ -170,6 +170,9 @@ export const RoomProvider = ({ children }) => {
           detail: { code: data.code }
         }));
       }
+
+      // Dispatch custom event for tour to detect
+      window.dispatchEvent(new CustomEvent('room-joined-event'));
     });
     
     socketInstance.on('room-error', (error) => {
@@ -243,6 +246,46 @@ export const RoomProvider = ({ children }) => {
     };
   }, []);
   
+  // Handle socket events for OT
+  useEffect(() => {
+    if (!state.isInRoom || !socket) return;
+
+    const socketInstance = getSocket();
+
+    // Listen for room joined event
+    socketInstance.on('room-joined', (data) => {
+      console.log("Room joined event received:", data);
+      dispatch({
+        type: ACTION_TYPES.JOIN_ROOM_SUCCESS,
+        payload: {
+          roomId: data.roomId,
+          roomName: data.roomName,
+          users: data.users,
+          userId: data.userId,
+          userName: data.userName,
+          accessLevel: data.accessLevel,
+        }
+      });
+      saveToStorage('current_room', data.roomId);
+
+      // Handle initial code if provided
+      if (data.code) {
+        // We'll emit an event for the App component to capture in its own effect
+        window.dispatchEvent(new CustomEvent('room-code-received', { 
+          detail: { code: data.code }
+        }));
+      }
+
+      // Dispatch custom event for tour to detect - with additional flag for "freshly joined"
+      window.dispatchEvent(new CustomEvent('room-joined-event', {
+        detail: {
+          freshJoin: true,
+          roomId: data.roomId
+        }
+      }));
+    });
+  }, [state.isInRoom, socket]);
+
   // Check if room already exists in local storage on mount
   useEffect(() => {
     const checkExistingRoom = async () => {

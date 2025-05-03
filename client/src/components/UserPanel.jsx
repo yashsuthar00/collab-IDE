@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRoom } from '../contexts/RoomContext';
 import { Users, X, Settings, MessageSquare, Copy, Edit, Play, Eye } from 'lucide-react';
 import { ACCESS_LEVELS } from '../utils/roomService';
+import { hasTourBeenSeen, createUserPanelTour } from '../utils/tours';
 
 const UserPanel = ({ isOpen, onClose }) => {
   const {
@@ -14,6 +15,20 @@ const UserPanel = ({ isOpen, onClose }) => {
   } = useRoom();
   
   const [activeTab, setActiveTab] = useState('users');
+  const [copiedRoomId, setCopiedRoomId] = useState(false);
+  
+  // Show tour for first-time users
+  useEffect(() => {
+    if (isOpen && !hasTourBeenSeen('user_panel')) {
+      // Small delay to ensure the panel is fully rendered
+      const timer = setTimeout(() => {
+        const tour = createUserPanelTour();
+        tour.drive();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
   
   // Get the appropriate icon for each access level
   const getAccessLevelIcon = (accessLevel) => {
@@ -45,6 +60,8 @@ const UserPanel = ({ isOpen, onClose }) => {
   // Handler for copying room ID
   const handleCopyRoomId = () => {
     navigator.clipboard.writeText(roomId);
+    setCopiedRoomId(true);
+    setTimeout(() => setCopiedRoomId(false), 2000);
   };
   
   // Render access level dropdown for a user
@@ -61,6 +78,7 @@ const UserPanel = ({ isOpen, onClose }) => {
     
     return (
       <select
+        id="access-level-controls"
         className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-xs rounded-md p-1"
         value={user.accessLevel}
         onChange={(e) => updateUserAccess(user.id, e.target.value)}
@@ -100,16 +118,20 @@ const UserPanel = ({ isOpen, onClose }) => {
       <div className="flex justify-between items-center">
         <p className="text-sm text-gray-500 dark:text-gray-400">Room ID:</p>
         <div className="flex items-center">
-          <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono">
+          <code id="room-id-display" className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono">
             {roomId}
           </code>
           <button 
+            id="copy-room-id"
             onClick={handleCopyRoomId}
             className="ml-2 text-blue-500 hover:text-blue-600 dark:hover:text-blue-400"
             aria-label="Copy room ID"
           >
             <Copy className="w-4 h-4" />
           </button>
+          {copiedRoomId && (
+            <span className="ml-2 text-xs text-green-500 dark:text-green-400">Copied!</span>
+          )}
         </div>
       </div>
     </div>
@@ -147,7 +169,7 @@ const UserPanel = ({ isOpen, onClose }) => {
   
   // Users list component
   const UsersList = () => (
-    <div className="p-2 overflow-y-auto flex-1">
+    <div id="users-list" className="p-2 overflow-y-auto flex-1">
       <div className="space-y-2">
         {users.map((user) => (
           <div 
@@ -183,7 +205,10 @@ const UserPanel = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
   
   return (
-    <div className="fixed top-0 right-0 h-full w-64 md:w-72 bg-white dark:bg-gray-900 shadow-lg border-l border-gray-200 dark:border-gray-800 flex flex-col z-20 transform transition-transform duration-300 ease-in-out">
+    <div 
+      id="user-panel-content"
+      className="fixed top-0 right-0 h-full w-64 md:w-72 bg-white dark:bg-gray-900 shadow-lg border-l border-gray-200 dark:border-gray-800 flex flex-col z-20 transform transition-transform duration-300 ease-in-out"
+    >
       <PanelHeader />
       <RoomInfo />
       <TabsNavigation />

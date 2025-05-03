@@ -1,0 +1,49 @@
+/* Animation keyframes for the tour clicks */
+@keyframes tour-click-effect {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.tour-click-animation {
+  animation: tour-click-effect 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Fade in animation for panel opening */
+@keyframes panel-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.panel-enter-animation {
+  animation: panel-fade-in 0.3s ease-out;
+}
+
+/* Custom styling for tour UI */
+.driver-popover {
+  /* Add any custom styling for the tour popover */
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
+}
+
+.driver-popover-title {
+  font-weight: 600 !important;
+}
+
+/* Ensure the tour works in mobile view */
+@media (max-width: 768px) {
+  .driver-popover {
+    max-width: 280px !important;
+  }
+}

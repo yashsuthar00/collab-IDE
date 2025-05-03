@@ -2,6 +2,8 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import 'driver.js/dist/driver.css'
+import './css/animations.css' // Import our custom animations
 
 // Ensure mobile devices render correctly
 const fixViewportForMobile = () => {

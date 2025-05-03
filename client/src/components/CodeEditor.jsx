@@ -35,6 +35,10 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
   const currentVersionRef = useRef(0);
   const pendingOpsRef = useRef([]);
   const isApplyingRemoteOpsRef = useRef(false);
+  const suppressEventsRef = useRef(false);
+  const selectionRef = useRef(null);
+  const bufferRef = useRef([]);
+  const bufferTimeoutRef = useRef(null);
   
   // Get room context
   const { isInRoom, roomId, currentUser } = useRoom();
@@ -51,6 +55,38 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     return userColorMap.get(userId);
   }, []);
   
+  // Debounced function to emit cursor position
+  const emitCursorPosition = useCallback(
+    debounce((position) => {
+      if (isInRoom && !readOnly && currentUser?.id) {
+        const socket = getSocket();
+        socket.emit('cursor-position', {
+          roomId,
+          userId: currentUser.id,
+          position,
+          userName: currentUser.name
+        });
+      }
+    }, 50),
+    [isInRoom, roomId, currentUser?.id, currentUser?.name, readOnly]
+  );
+  
+  // Debounced function to emit selection changes
+  const emitSelectionChange = useCallback(
+    debounce((selection) => {
+      if (isInRoom && !readOnly && currentUser?.id) {
+        const socket = getSocket();
+        socket.emit('selection-change', {
+          roomId,
+          userId: currentUser.id,
+          selection,
+          userName: currentUser.name
+        });
+      }
+    }, 50),
+    [isInRoom, roomId, currentUser?.id, currentUser?.name, readOnly]
+  );
+
   // Update remote cursor
   const updateRemoteCursor = useCallback((userId, position, userName) => {
     if (!editorRef.current || !monacoRef.current) return;
@@ -269,9 +305,20 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     `;
   }, []);
 
-  // Handle local editing operations with OT
+  // Handle local editing operations with OT - improved approach
   const handleDocumentChange = useCallback((event) => {
-    if (readOnly || isApplyingRemoteOpsRef.current) return;
+    if (readOnly || isApplyingRemoteOpsRef.current || suppressEventsRef.current) return;
+    
+    const currentPos = editorRef.current?.getPosition();
+    const currentSelection = editorRef.current?.getSelection();
+    
+    // Save cursor position and selection for restoration after applying operations
+    if (currentPos) {
+      selectionRef.current = {
+        position: currentPos,
+        selection: currentSelection
+      };
+    }
     
     // Generate operations from Monaco change event
     const operations = monacoChangeToOp(event, codeRef.current);
@@ -292,59 +339,134 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       version: currentVersionRef.current
     });
     
-    // Send operations to server
-    if (isInRoom && socket) {
-      const socket = getSocket();
-      socket.emit('ot-operations', {
-        roomId,
-        userId: currentUser?.id,
-        operations: opsWithClientId,
-        version: currentVersionRef.current,
-        clientId: CLIENT_ID
-      });
+    // Add to buffer for batched sending
+    bufferRef.current = [...bufferRef.current, ...opsWithClientId];
+    
+    // Clear any existing timeout
+    if (bufferTimeoutRef.current) {
+      clearTimeout(bufferTimeoutRef.current);
     }
+    
+    // Schedule sending ops
+    bufferTimeoutRef.current = setTimeout(() => {
+      sendBufferedOps();
+    }, 30); // 30ms buffer period for batching operations
   }, [isInRoom, readOnly, roomId, currentUser?.id]);
   
-  // Apply remote operations
+  // Send buffered operations
+  const sendBufferedOps = useCallback(() => {
+    if (!isInRoom || bufferRef.current.length === 0) return;
+    
+    const ops = bufferRef.current.slice();
+    bufferRef.current = [];
+    
+    const socket = getSocket();
+    socket.emit('ot-operations', {
+      roomId,
+      userId: currentUser?.id,
+      operations: ops,
+      version: currentVersionRef.current,
+      clientId: CLIENT_ID
+    });
+    
+    console.log(`Sent ${ops.length} operations to server`, ops);
+  }, [isInRoom, roomId, currentUser?.id]);
+  
+  // Apply remote operations - improved approach
   const applyRemoteOperations = useCallback((operations) => {
-    if (!editorRef.current) return;
+    if (!editorRef.current || !operations.length) return;
     
     // Mark that we're applying remote ops to avoid handling our own changes
     isApplyingRemoteOpsRef.current = true;
+    suppressEventsRef.current = true;
     
     try {
-      // Get current editor state
+      // Get current editor state and selections
       const model = editorRef.current.getModel();
       const currentValue = model.getValue();
+      const currentSelections = editorRef.current.getSelections();
+      const currentPosition = editorRef.current.getPosition();
       
       // Apply operations to get new text
       const newText = applyOps(currentValue, operations);
       
-      // Update editor with new text
-      model.pushEditOperations(
-        editorRef.current.getSelections(),
-        [
-          {
-            range: model.getFullModelRange(),
+      // Calculate the edits to apply
+      const edits = [];
+      let oldText = currentValue;
+      
+      for (const op of operations) {
+        if (op.type === 'insert') {
+          edits.push({
+            range: {
+              startLineNumber: 1,
+              startColumn: 1,
+              endLineNumber: model.getLineCount(),
+              endColumn: model.getLineMaxColumn(model.getLineCount())
+            },
             text: newText,
-          }
-        ],
-        () => null
-      );
+            forceMoveMarkers: true
+          });
+          break;
+        } else if (op.type === 'delete') {
+          // For delete operations, get the line and column of the deletion
+          const startPos = offsetToPosition(oldText, op.position);
+          const endPos = offsetToPosition(oldText, op.position + op.length);
+          
+          edits.push({
+            range: {
+              startLineNumber: startPos.lineNumber,
+              startColumn: startPos.column,
+              endLineNumber: endPos.lineNumber,
+              endColumn: endPos.column
+            },
+            text: '',
+            forceMoveMarkers: true
+          });
+          
+          // Apply this individual operation to keep oldText in sync
+          oldText = applyOps(oldText, [op]);
+        }
+      }
+      
+      // If we don't have granular edits, apply everything at once
+      if (edits.length === 0 && newText !== currentValue) {
+        model.setValue(newText);
+      } else {
+        // Apply edits
+        model.pushEditOperations(
+          currentSelections,
+          edits,
+          () => null
+        );
+      }
       
       // Update our reference to current content
-      codeRef.current = newText;
+      codeRef.current = model.getValue();
       
       // Update the outer component's state
-      setCode(newText);
+      setCode(model.getValue());
       
+      // Transform any pending local operations against the received remote ops
+      pendingOpsRef.current = pendingOpsRef.current.map(pendingOp => ({
+        ...pendingOp,
+        operations: transformOps(pendingOp.operations, operations)
+      }));
+      
+      // Restore cursor position and selections, adjusted for the operations
+      if (currentPosition && currentSelections) {
+        // The editor should restore position for us now
+        // but we could add more sophisticated position adjustment here
+      }
     } finally {
-      // Unmark applying remote ops
-      isApplyingRemoteOpsRef.current = false;
+      // Wait a bit before re-enabling events to let the editor settle
+      setTimeout(() => {
+        suppressEventsRef.current = false;
+        isApplyingRemoteOpsRef.current = false;
+      }, 10);
     }
   }, [setCode]);
   
-  // Handle socket events for OT
+  // Improved socket event handler for OT
   useEffect(() => {
     if (!isInRoom || !editorRef.current) return;
     
@@ -354,74 +476,102 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     socket.emit('ot-request-sync', { roomId });
     
     // Listen for operation acknowledgments
-    const handleOpAck = ({ version, clientId }) => {
-      if (clientId === CLIENT_ID) {
+    const handleOpAck = (data) => {
+      if (data.clientId === CLIENT_ID) {
         // Update current version
-        currentVersionRef.current = version;
+        currentVersionRef.current = data.version;
         
         // Remove acknowledged operations from pending
         pendingOpsRef.current = pendingOpsRef.current.filter(
-          op => op.version !== version - 1
+          op => op.version !== (data.version - 1)
         );
+        
+        console.log(`Ack received for version ${data.version}, ${pendingOpsRef.current.length} pending ops remaining`);
       }
     };
     
     // Listen for operations from other clients
-    const handleRemoteOps = ({ operations, userId, version, clientId }) => {
-      if (clientId === CLIENT_ID) return; // Ignore our own ops echoed back
+    const handleRemoteOps = (data) => {
+      if (data.clientId === CLIENT_ID) {
+        console.log("Ignoring our own ops echoed back");
+        return; // Ignore our own ops echoed back
+      }
       
-      // If we receive a higher version than expected, request a full sync
-      if (version > currentVersionRef.current + 1) {
+      console.log(`Received remote ops for version ${data.version}, current: ${currentVersionRef.current}`);
+      
+      // If version is out of sync (too far ahead), request a full sync
+      if (data.version > currentVersionRef.current + 1) {
+        console.log("Version inconsistency detected, requesting sync");
         socket.emit('ot-request-sync', { roomId });
         return;
       }
       
       // Apply remote operations
-      applyRemoteOperations(operations);
+      applyRemoteOperations(data.operations);
       
       // Update version
-      currentVersionRef.current = version;
-      
-      // Transform any pending local operations against the received remote ops
-      if (pendingOpsRef.current.length > 0) {
-        pendingOpsRef.current = pendingOpsRef.current.map(pendingOp => ({
-          ...pendingOp,
-          operations: transformOps(pendingOp.operations, operations)
-        }));
-      }
+      currentVersionRef.current = data.version;
     };
     
-    // Handle full document sync
-    const handleSync = ({ content, version }) => {
-      // Only sync if content is different
-      if (content !== codeRef.current) {
-        // Mark we're applying remote changes
-        isApplyingRemoteOpsRef.current = true;
-        
-        try {
+    // Handle full document sync - improved to preserve cursors and selections
+    const handleSync = (data) => {
+      console.log(`Received full sync for version ${data.version}`);
+      
+      // Get current cursor position and selections before sync
+      const currentPosition = editorRef.current.getPosition();
+      const currentSelections = editorRef.current.getSelections();
+      
+      // Mark we're applying remote changes
+      isApplyingRemoteOpsRef.current = true;
+      suppressEventsRef.current = true;
+      
+      try {
+        // Only sync if content is different
+        if (data.content !== codeRef.current) {
           // Set editor content
-          editorRef.current.setValue(content);
+          editorRef.current.setValue(data.content);
           
           // Update our reference
-          codeRef.current = content;
+          codeRef.current = data.content;
           
           // Update outer component state
-          setCode(content);
-        } finally {
-          isApplyingRemoteOpsRef.current = false;
+          setCode(data.content);
         }
+        
+        // Update version
+        currentVersionRef.current = data.version;
+        
+        // Clear pending operations - they're no longer valid after a full sync
+        pendingOpsRef.current = [];
+        bufferRef.current = [];
+        if (bufferTimeoutRef.current) {
+          clearTimeout(bufferTimeoutRef.current);
+          bufferTimeoutRef.current = null;
+        }
+        
+        // Try to restore cursor position and selections
+        if (currentPosition && currentSelections) {
+          setTimeout(() => {
+            try {
+              editorRef.current.setPosition(currentPosition);
+              editorRef.current.setSelections(currentSelections);
+            } catch (e) {
+              console.warn("Couldn't restore cursor position after sync", e);
+            }
+          }, 10);
+        }
+      } finally {
+        // Wait a bit before re-enabling events to let the editor settle
+        setTimeout(() => {
+          suppressEventsRef.current = false;
+          isApplyingRemoteOpsRef.current = false;
+        }, 10);
       }
-      
-      // Update version
-      currentVersionRef.current = version;
-      
-      // Clear pending operations - they're no longer valid after a full sync
-      pendingOpsRef.current = [];
     };
     
     // Listen for errors
-    const handleOtError = ({ message }) => {
-      console.error('OT error:', message);
+    const handleOtError = (data) => {
+      console.error('OT error:', data.message);
       
       // Request a fresh sync after an error
       socket.emit('ot-request-sync', { roomId });
@@ -441,6 +591,23 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       socket.off('ot-error', handleOtError);
     };
   }, [isInRoom, roomId, applyRemoteOperations, setCode]);
+
+  // Monitor for code prop changes from outside
+  useEffect(() => {
+    // If the code prop changes from outside and it's different from our internal state,
+    // update our internal state without triggering a change event
+    if (code !== codeRef.current && !isApplyingRemoteOpsRef.current) {
+      codeRef.current = code;
+      
+      if (editorRef.current) {
+        suppressEventsRef.current = true;
+        editorRef.current.setValue(code);
+        setTimeout(() => {
+          suppressEventsRef.current = false;
+        }, 0);
+      }
+    }
+  }, [code]);
 
   // Editor mount handler
   const handleEditorDidMount = useCallback((editor, monaco) => {
@@ -466,6 +633,27 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       onRunCode();
     });
     
+    // Initialize code reference
+    codeRef.current = editor.getValue();
+    
+    // Listen for model content changes for OT
+    const model = editor.getModel();
+    model.onDidChangeContent(handleDocumentChange);
+    
+    // Add cursor position change listener for collaborative editing
+    editor.onDidChangeCursorPosition((e) => {
+      if (isInRoom && !readOnly && currentUser?.id && !isApplyingRemoteOpsRef.current) {
+        emitCursorPosition(e.position);
+      }
+    });
+    
+    // Add selection change listener for collaborative editing
+    editor.onDidChangeCursorSelection((e) => {
+      if (isInRoom && !readOnly && currentUser?.id && !isApplyingRemoteOpsRef.current) {
+        emitSelectionChange(e.selection);
+      }
+    });
+
     // Focus editor on mount for desktop, but not for mobile
     if (window.innerWidth >= 768) {
       editor.focus();
@@ -482,55 +670,18 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
 
     // Set read-only state
     editor.updateOptions({ readOnly });
-    
-    // Initialize code reference
-    codeRef.current = editor.getValue();
-    
-    // Listen for model content changes for OT
-    const model = editor.getModel();
-    model.onDidChangeContent(handleDocumentChange);
-    
-    // Add cursor position change listener for collaborative editing
-    editor.onDidChangeCursorPosition((e) => {
-      if (isInRoom && !readOnly && currentUser?.id) {
-        emitCursorPosition(e.position);
-      }
-    });
-    
-    // Add selection change listener for collaborative editing
-    editor.onDidChangeCursorSelection((e) => {
-      if (isInRoom && !readOnly && currentUser?.id) {
-        emitSelectionChange(e.selection);
-      }
-    });
 
     console.log("Editor mounted successfully, OT enabled");
-  }, [theme, onRunCode, handleDocumentChange]);
+  }, [theme, onRunCode, handleDocumentChange, emitCursorPosition, emitSelectionChange]);
 
-  // Handle code change with OT
+  // Handle code change (simplified since most logic moved to handleDocumentChange)
   const handleCodeChange = useCallback((newCode) => {
-    // Let OT mechanism handle the actual changes
-    if (newCode !== undefined && newCode !== null) {
-      // Only update external state when not applying remote ops
-      if (!isApplyingRemoteOpsRef.current) {
-        setCode(newCode);
-      }
+    // This is now just a pass-through function since the real logic
+    // happens in the model's onDidChangeContent event handler
+    if (newCode !== undefined && newCode !== null && !isApplyingRemoteOpsRef.current) {
+      setCode(newCode);
     }
   }, [setCode]);
-
-  // Update theme when it changes
-  useEffect(() => {
-    if (editorRef.current && monacoRef.current) {
-      monacoRef.current.editor.setTheme(theme === 'dark' ? 'customDark' : 'light');
-    }
-  }, [theme]);
-
-  // Update readOnly state when it changes
-  useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.updateOptions({ readOnly });
-    }
-  }, [readOnly]);
 
   // Force the special characters bar to show on mobile and tablet
   useEffect(() => {
@@ -648,7 +799,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       
       {/* Active collaborators indicator */}
       {isInRoom && remoteUserCursors.size > 0 && (
-        <div className="absolute top-3 left-3 flex space-x-1 z-20">
+        <div id="collaborator-avatars" className="absolute top-3 left-3 flex space-x-1 z-20">
           {Array.from(remoteUserCursors.entries()).map(([userId, data]) => (
             <div 
               key={userId} 

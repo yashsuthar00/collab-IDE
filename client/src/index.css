@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import 'driver.js/dist/driver.css';
 
 /* Define stronger dark mode variables with higher specificity */
 :root {
@@ -150,6 +151,14 @@ button {
   }
 }
 
+/* Make sure the fixed help button is always visible and clickable */
+#fixed-help-button {
+  z-index: 9999;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  bottom: calc(env(safe-area-inset-bottom) + 1rem);
+}
+
 /* Apply dark mode to specific elements explicitly */
 .dark input,
 .dark textarea,
@@ -287,4 +296,94 @@ html.dark .navbar-component {
   border-radius: 2px;
   font-size: 10px;
   white-space: nowrap;
+}
+
+/* Enhanced driver.js styles */
+.driver-popover {
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+}
+
+.driver-popover-title {
+  font-weight: 600 !important;
+  font-size: 1.125rem !important;
+}
+
+.driver-popover-description {
+  font-size: 0.925rem !important;
+}
+
+.driver-popover-footer button {
+  border-radius: 4px !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.driver-popover-footer .driver-next-btn, 
+.driver-popover-footer .driver-prev-btn,
+.driver-popover-footer .driver-close-btn,
+.driver-popover-footer .driver-done-btn {
+  border-radius: 6px !important;
+  padding: 8px 15px !important;
+}
+
+.driver-popover-footer .driver-next-btn,
+.driver-popover-footer .driver-done-btn {
+  background-color: #3b82f6 !important;
+}
+
+.driver-popover-footer .driver-next-btn:hover,
+.driver-popover-footer .driver-done-btn:hover {
+  background-color: #2563eb !important;
+}
+
+/* Extra styles for driver.js on mobile devices */
+@media (max-width: 768px) {
+  /* Adjust popover for mobile screens */
+  .driver-popover {
+    width: 90% !important;
+    max-width: 300px !important;
+  }
+  
+  .driver-popover-title {
+    font-size: 1rem !important;
+  }
+  
+  .driver-popover-description {
+    font-size: 0.875rem !important;
+  }
+  
+  .driver-popover-footer button {
+    padding: 6px 12px !important;
+  }
+  
+  /* Ensure the popover is above all other elements on mobile */
+  .driver-popover-overlay {
+    z-index: 10000 !important;
+  }
+}
+
+/* Dark mode styling for driver popover */
+@media (prefers-color-scheme: dark) {
+  .dark .driver-popover {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+  }
+  
+  .dark .driver-popover-title {
+    color: #f8fafc !important;
+  }
+  
+  .dark .driver-popover-description {
+    color: #cbd5e1 !important;
+  }
+  
+  .dark .driver-popover-footer .driver-next-btn,
+  .dark .driver-popover-footer .driver-done-btn {
+    background-color: #3b82f6 !important;
+  }
+  
+  .dark .driver-popover-footer .driver-close-btn,
+  .dark .driver-popover-footer .driver-prev-btn {
+    color: #e2e8f0 !important;
+  }
 }

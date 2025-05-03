@@ -45,6 +45,7 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
             <span>Output</span>
           </button>
           <button
+            id="input-tab-button"
             onClick={() => setActiveTab('input')}
             className={`flex items-center px-4 py-2 font-medium text-sm ${
               activeTab === 'input'
@@ -117,6 +118,7 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
         ) : (
           <div className="h-full output-panel-input relative">
             <textarea
+              id="input-textarea"
               ref={textareaRef}
               value={input}
               onChange={(e) => !readOnly && setInput(e.target.value)}

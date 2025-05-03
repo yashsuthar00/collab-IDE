@@ -1,4 +1,4 @@
-import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus } from 'lucide-react';
+import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus, HelpCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 function Navbar({ 
@@ -17,7 +17,8 @@ function Navbar({
   currentUser,
   onOpenUserPanel,
   onLeaveRoom,
-  onJoinRoom
+  onJoinRoom,
+  onStartTour // Add this prop
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   
@@ -51,7 +52,7 @@ function Navbar({
   useEffect(() => {}, [theme]);
 
   return (
-    <nav className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 px-4 shadow-sm">
+    <nav id="navbar" className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 px-4 shadow-sm">
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center">
           <div className="flex items-center space-x-2 text-xl font-bold text-blue-600 dark:text-blue-400">
@@ -71,6 +72,7 @@ function Navbar({
         <div className="hidden md:flex items-center space-x-3">
           {!isInRoom ? (
             <button
+              id="collaboration-button"
               onClick={handleJoinRoom}
               type="button"
               className="flex items-center px-3 py-1.5 rounded-md text-sm border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
@@ -80,15 +82,21 @@ function Navbar({
             </button>
           ) : (
             <>
+              <div id="room-info" className="px-2 py-1 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-md">
+                <div className="text-xs text-green-700 dark:text-green-300">Room: {currentUser?.name}</div>
+              </div>
+            
               <button
+                id="users-panel-button"
                 onClick={onOpenUserPanel}
                 className="flex items-center px-3 py-1.5 rounded-md text-sm border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
               >
                 <Users className="w-4 h-4 mr-1" />
-                Users ({currentUser?.name})
+                Users
               </button>
               
               <button
+                id="leave-room-button"
                 onClick={onLeaveRoom}
                 className="flex items-center px-3 py-1.5 rounded-md text-sm border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
               >
@@ -98,7 +106,7 @@ function Navbar({
             </>
           )}
 
-          <div className="flex items-center">
+          <div id="language-selector" className="flex items-center">
             <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
             <select
               value={language.id}
@@ -115,6 +123,7 @@ function Navbar({
           </div>
 
           <button
+            id="auto-save-toggle"
             onClick={toggleAutoSave}
             className={`flex items-center px-3 py-1.5 rounded-md text-sm border ${
               autoSave 
@@ -129,6 +138,7 @@ function Navbar({
           </button>
           
           <button
+            id="theme-toggle"
             onClick={toggleTheme}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             aria-label={theme === 'dark' ? "Switch to light mode" : "Switch to dark mode"}
@@ -141,6 +151,17 @@ function Navbar({
           </button>
 
           <button
+            id="help-button"
+            onClick={onStartTour}
+            className="p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+            aria-label="Show help"
+            title="Show interactive tutorial"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
+
+          <button
+            id="run-button"
             onClick={onRunCode}
             disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
             className={`px-4 py-2 rounded-md flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${
@@ -267,6 +288,19 @@ function Navbar({
           >
             <Save className={`w-4 h-4 mr-1 ${autoSave ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
             <span className="text-sm">{autoSave ? 'Auto-save On' : 'Auto-save Off'}</span>
+          </button>
+        </div>
+
+        <div className="flex justify-center px-2">
+          <button
+            onClick={() => {
+              onStartTour();
+              setMenuOpen(false);
+            }}
+            className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+          >
+            <HelpCircle className="w-4 h-4 mr-2" />
+            Show Tutorial
           </button>
         </div>
       </div>
