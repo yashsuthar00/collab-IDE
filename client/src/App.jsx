@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, Component } from 'react';
 import Navbar from './components/Navbar';
 import CodeEditor from './components/CodeEditor';
 import OutputPanel from './components/OutputPanel';
@@ -14,6 +14,42 @@ import {
   hasTourBeenSeen
 } from './utils/tours';
 import './App.css';
+
+// ErrorBoundary component to catch errors in CodeEditor
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    // Update state so the next render will show the fallback UI
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // You can log the error to an error reporting service
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  componentDidUpdate(prevProps) {
+    // Reset error state when children change
+    if (prevProps.children !== this.props.children) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // You can render any custom fallback UI
+      return typeof this.props.fallback === 'function' 
+        ? this.props.fallback() 
+        : this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
 
 function CollaborativeApp() {
   const { 
@@ -449,6 +485,19 @@ function CollaborativeApp() {
     return () => window.removeEventListener('switch-mobile-view', handleViewSwitch);
   }, []);
 
+  // Handle room modal open/close with tracking
+  const handleOpenRoomModal = () => {
+    // Flag that this is a manual room action (for error logging purposes)
+    window.lastRoomAction = 'manual';
+    setIsRoomModalOpen(true);
+  };
+  
+  const handleCloseRoomModal = () => {
+    setIsRoomModalOpen(false);
+  };
+
+  const editorKey = useMemo(() => isInRoom ? `editor-${roomId}` : 'editor-local', [isInRoom, roomId]);
+
   return (
     <div className={`h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${theme === 'dark' ? 'dark-mode' : 'light-mode'}`}>
       <Navbar 
@@ -467,7 +516,7 @@ function CollaborativeApp() {
         currentUser={currentUser}
         onOpenUserPanel={() => setIsUserPanelOpen(true)}
         onLeaveRoom={leaveRoom}
-        onJoinRoom={() => setIsRoomModalOpen(true)}
+        onJoinRoom={handleOpenRoomModal} // Use the new handler
         onStartTour={handleStartTour}
       />
       
@@ -501,14 +550,17 @@ function CollaborativeApp() {
             mobileView === 'output' ? 'hidden md:block' : 'block'
           } ${isMobile ? 'pb-12' : ''}`}
         >
-          <CodeEditor
-            code={code}
-            setCode={handleCodeChange}
-            language={language.value}
-            theme={theme}
-            onRunCode={handleRunCode}
-            readOnly={isInRoom && !checkPermission('EDIT_CODE')}
-          />
+          <ErrorBoundary fallback={<div className="p-4 text-red-500">Error loading editor. Please refresh the page.</div>}>
+            <CodeEditor
+              key={editorKey} // Add a key to recreate component when room changes
+              code={code}
+              setCode={handleCodeChange}
+              language={language.value}
+              theme={theme}
+              onRunCode={handleRunCode}
+              readOnly={isInRoom && !checkPermission('EDIT_CODE')}
+            />
+          </ErrorBoundary>
         </div>
         
         <div 
@@ -539,7 +591,7 @@ function CollaborativeApp() {
       
       <RoomJoinModal 
         isOpen={isRoomModalOpen} 
-        onClose={() => setIsRoomModalOpen(false)}
+        onClose={handleCloseRoomModal} // Use the new handler
       />
 
       {/* Help button with fixed position and onClick handler */}

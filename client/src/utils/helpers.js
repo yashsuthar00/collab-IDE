@@ -25,6 +25,33 @@ export const debounce = (func, wait) => {
 };
 
 /**
+ * Creates a debounced function with immediate call option
+ * @param {Function} func - The function to debounce
+ * @param {number} wait - Wait time in milliseconds
+ * @param {boolean} immediate - Whether to invoke the function immediately
+ * @returns {Function} - The debounced function
+ */
+export const enhancedDebounce = (func, wait, immediate = false) => {
+  let timeout;
+  
+  return function(...args) {
+    const context = this;
+    
+    const later = () => {
+      timeout = null;
+      if (!immediate) func.apply(context, args);
+    };
+    
+    const callNow = immediate && !timeout;
+    
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+    
+    if (callNow) func.apply(context, args);
+  };
+};
+
+/**
  * Throttles a function to execute at most once per specified time period
  * 
  * @param {Function} func The function to throttle
@@ -102,6 +129,57 @@ export const diffTexts = (oldText, newText) => {
   }
   
   return ops;
+};
+
+/**
+ * Merges multiple text operations more efficiently to reduce network traffic
+ * @param {Array} operations - Array of text operations
+ * @returns {Array} - Optimized array of operations
+ */
+export const optimizeOperations = (operations) => {
+  if (!operations || operations.length <= 1) return operations;
+  
+  const result = [];
+  let lastOp = null;
+  
+  // Sort operations by position to help with merging
+  operations.sort((a, b) => {
+    // First by timestamp
+    if (a.timestamp !== b.timestamp) {
+      return a.timestamp - b.timestamp;
+    }
+    
+    // Then by position
+    return a.position - b.position;
+  });
+  
+  for (const op of operations) {
+    // If this is the first operation or different type from last one
+    if (!lastOp || lastOp.type !== op.type) {
+      lastOp = { ...op };
+      result.push(lastOp);
+      continue;
+    }
+    
+    // Try to merge operations when possible
+    if (op.type === 'insert' && lastOp.position + lastOp.text.length === op.position) {
+      // Consecutive inserts can be merged
+      lastOp.text += op.text;
+    } else if (op.type === 'delete' && lastOp.position === op.position) {
+      // Delete at same position can be merged
+      lastOp.length += op.length;
+    } else if (op.type === 'delete' && op.position + op.length === lastOp.position) {
+      // Delete right before lastOp
+      lastOp.position = op.position;
+      lastOp.length += op.length;
+    } else {
+      // Cannot merge, add as new operation
+      lastOp = { ...op };
+      result.push(lastOp);
+    }
+  }
+  
+  return result;
 };
 
 /**

@@ -26,6 +26,19 @@ const initializeTheme = () => {
   }
 };
 
+// Handle uncaught promise rejections related to Monaco editor
+window.addEventListener('unhandledrejection', event => {
+  // Check if this is a Monaco editor cancelation - these are expected and can be ignored
+  if (event.reason && event.reason.type === 'cancelation' && event.reason.msg === 'operation is manually canceled') {
+    event.preventDefault(); // Prevent the error from appearing in console
+    console.debug('Suppressed Monaco editor cancelation event');
+    return;
+  }
+  
+  // Log other unhandled rejections
+  console.error('Unhandled Promise Rejection:', event.reason);
+});
+
 // Apply mobile fixes and theme immediately
 fixViewportForMobile();
 initializeTheme();

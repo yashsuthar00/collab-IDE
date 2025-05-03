@@ -293,7 +293,13 @@ io.on('connection', (socket) => {
     try {
       // Check if room exists
       if (!rooms.has(roomId)) {
-        return socket.emit('room-error', { message: 'Room not found' });
+        // Don't log an error for normal rejoin attempts - this is expected behavior
+        // when the user had a room in localStorage but the server restarted
+        // or the room was deleted
+        return socket.emit('room-error', { 
+          message: 'Room not found', 
+          type: 'silent' // Mark this as a "silent" error that shouldn't be logged prominently
+        });
       }
       
       const room = rooms.get(roomId);
@@ -332,8 +338,50 @@ io.on('connection', (socket) => {
     }
   });
   
-  // Handle code changes with OT
-  socket.on('ot-operations', ({ roomId, userId, operations, version, clientId }) => {
+  // Provide full sync for new clients or when conflicts occur - improved with throttling
+  socket.on('ot-request-sync', ({ roomId, clientId }) => {
+    if (!rooms.has(roomId)) return;
+    
+    const room = rooms.get(roomId);
+    const versionData = roomVersions.get(roomId) || { version: 0 };
+    
+    // Throttle sync responses to prevent flooding
+    const now = Date.now();
+    
+    // Use a Map to track last sync time per client
+    if (!room.lastSyncTime) {
+      room.lastSyncTime = new Map();
+      room.syncRequestCount = new Map();
+    }
+    
+    const lastSyncTime = room.lastSyncTime.get(clientId) || 0;
+    const syncCount = room.syncRequestCount.get(clientId) || 0;
+    
+    // Rate limit syncs to at most once every 3 seconds per client
+    // Also limit to 5 syncs within a 60-second window
+    if (now - lastSyncTime < 3000 || (syncCount > 5 && now - lastSyncTime < 60000)) {
+      return; // Silently ignore the request
+    }
+    
+    // Update tracking info
+    room.lastSyncTime.set(clientId, now);
+    room.syncRequestCount.set(clientId, syncCount + 1);
+    
+    // Reset sync count after a period of time
+    if (now - lastSyncTime > 60000) {
+      room.syncRequestCount.set(clientId, 1);
+    }
+    
+    // Send sync to client
+    socket.emit('ot-sync', {
+      roomId,
+      content: room.code || '',
+      version: versionData.version
+    });
+  });
+
+  // Handle code changes with OT - improved implementation with version checks
+  socket.on('ot-operations', ({ roomId, userId, operations, version, clientId, isBatch = false }) => {
     if (!rooms.has(roomId)) return;
     
     const room = rooms.get(roomId);
@@ -351,12 +399,23 @@ io.on('connection', (socket) => {
     
     // Handle version conflicts
     if (version !== versionData.version) {
-      // Client is out of sync - send current state to that client only
-      socket.emit('ot-sync', {
-        roomId,
-        content: room.code,
-        version: versionData.version
-      });
+      // Add simple protection against sync storms -
+      // only send sync if we haven't sent one to this client recently
+      const now = Date.now();
+      const lastSyncTime = room.lastSyncTime?.get(clientId) || 0;
+      
+      if (now - lastSyncTime > 3000) {
+        // Update last sync time
+        if (!room.lastSyncTime) room.lastSyncTime = new Map();
+        room.lastSyncTime.set(clientId, now);
+        
+        // Client is out of sync - send current state to that client only
+        socket.emit('ot-sync', {
+          roomId,
+          content: room.code,
+          version: versionData.version
+        });
+      }
       return;
     }
     
@@ -365,14 +424,51 @@ io.on('connection', (socket) => {
       versionData.baseContent = room.code || '';
     }
     
+    // Optimize batched operations
+    if (isBatch && operations.length > 1) {
+      // Sort operations by timestamp to ensure correct ordering
+      operations.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      
+      // Try to combine consecutive operations of the same type
+      const optimizedOps = [];
+      let currentOp = null;
+      
+      for (const op of operations) {
+        if (!currentOp) {
+          currentOp = { ...op };
+          continue;
+        }
+        
+        // Try to merge with previous op if possible
+        if (op.type === 'insert' && currentOp.type === 'insert' && 
+            currentOp.position + currentOp.text.length === op.position) {
+          // Consecutive inserts
+          currentOp.text += op.text;
+        } else if (op.type === 'delete' && currentOp.type === 'delete' && 
+                  op.position === currentOp.position) {
+          // Delete at same position (extending delete)
+          currentOp.length += op.length;
+        } else {
+          // Cannot merge - push current op and start new one
+          optimizedOps.push(currentOp);
+          currentOp = { ...op };
+        }
+      }
+      
+      // Add the last op
+      if (currentOp) {
+        optimizedOps.push(currentOp);
+      }
+      
+      // Use optimized operations
+      operations = optimizedOps;
+    }
+    
     // Apply operations to room code
     try {
       let newCode = room.code;
       
       for (const op of operations) {
-        // Apply transforms here if needed for pending ops
-        // For simplicity, we're just applying sequentially
-        
         // Apply the operation
         if (op.type === 'insert') {
           newCode = newCode.substring(0, op.position) + op.text + newCode.substring(op.position);
@@ -389,12 +485,16 @@ io.on('connection', (socket) => {
       roomVersions.set(roomId, versionData);
       
       // Broadcast operations to all other clients
-      socket.to(roomId).emit('ot-operations', {
+      // Use different event type based on whether this is a batch update
+      const eventName = isBatch ? 'ot-batch-operations' : 'ot-operations';
+      
+      socket.to(roomId).emit(eventName, {
         roomId,
         userId,
         operations,
         version: versionData.version,
-        clientId
+        clientId,
+        isBatch
       });
       
       // Acknowledge receipt to sender with new version
@@ -413,21 +513,7 @@ io.on('connection', (socket) => {
       });
     }
   });
-  
-  // Provide full sync for new clients or when conflicts occur
-  socket.on('ot-request-sync', ({ roomId }) => {
-    if (!rooms.has(roomId)) return;
-    
-    const room = rooms.get(roomId);
-    const versionData = roomVersions.get(roomId) || { version: 0 };
-    
-    socket.emit('ot-sync', {
-      roomId,
-      content: room.code || '',
-      version: versionData.version
-    });
-  });
-  
+
   // Handle code changes (backward compatibility)
   socket.on('code-change', ({ roomId, userId, code }) => {
     if (!rooms.has(roomId)) return;

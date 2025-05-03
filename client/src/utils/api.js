@@ -109,21 +109,15 @@ export const initializeSocket = () => {
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
-    query: { userName }
+    query: { userName },
+    autoConnect: true // Ensure this is true for proper connection
   });
   
   // Socket event handlers
   socket.on('connect', () => {
     console.log('Socket connected:', socket.id);
-    
-    // Re-join room if we were in one
-    const currentRoom = getFromStorage('current_room');
-    if (currentRoom) {
-      socket.emit('rejoin-room', { 
-        roomId: currentRoom,
-        userName
-      });
-    }
+    // Reset the sync counter when we connect
+    window._syncRequestCount = 0;
   });
   
   socket.on('disconnect', () => {
@@ -134,7 +128,48 @@ export const initializeSocket = () => {
     console.error('Socket error:', error);
   });
   
+  // Handle room errors without console spam
+  socket.on('room-error', (error) => {
+    // Only log actual errors from user interactions, not automatic reconnection attempts
+    if (window.lastRoomAction === 'manual' || error.type !== 'silent') {
+      console.error('Room error:', error);
+    }
+  });
+
+  // Global variables to track sync frequency
+  window._syncRequestCount = 0;
+  window._lastSyncTime = 0;
+  window._isSyncing = false;
+  
   return socket;
+};
+
+// Helper to check if we should throttle sync requests
+export const shouldThrottleSync = () => {
+  const now = Date.now();
+  const timeSinceLastSync = now - (window._lastSyncTime || 0);
+  
+  // If we're currently syncing or it's been less than 5 seconds since last sync
+  if (window._isSyncing || timeSinceLastSync < 5000) {
+    return true;
+  }
+  
+  // If we've made more than 3 requests in the last minute
+  if (window._syncRequestCount > 3 && timeSinceLastSync < 60000) {
+    console.log('Throttling sync requests - too frequent');
+    return true;
+  }
+  
+  // Update tracking variables
+  window._lastSyncTime = now;
+  window._syncRequestCount = (window._syncRequestCount || 0) + 1;
+  window._isSyncing = true;
+  
+  return false;
+};
+
+export const syncCompleted = () => {
+  window._isSyncing = false;
 };
 
 export const getSocket = () => {

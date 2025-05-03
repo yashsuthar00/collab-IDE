@@ -79,13 +79,19 @@ export function monacoChangeToOp(change, prevText) {
  * Apply an operational transformation operation to text
  * @param {string} text - Original text
  * @param {Array} ops - Array of operations to apply
+ * @param {boolean} isBatch - Whether these are batched operations
  * @returns {string} - New text after applying operations
  */
-export function applyOps(text, ops) {
+export function applyOps(text, ops, isBatch = false) {
   let newText = text;
   let offset = 0;
   
-  for (const op of ops) {
+  // For batch operations, sort by timestamp to ensure correct application order
+  const sortedOps = isBatch ? 
+    [...ops].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)) :
+    ops;
+  
+  for (const op of sortedOps) {
     switch (op.type) {
       case OpType.INSERT:
         newText = newText.substring(0, op.position + offset) + 
@@ -107,6 +113,80 @@ export function applyOps(text, ops) {
   }
   
   return newText;
+}
+
+/**
+ * Batch multiple operations into a single operation for efficiency
+ * @param {Array} ops - Array of operations to batch
+ * @returns {Array} - Optimized operations array
+ */
+export function batchOperations(ops) {
+  if (!ops.length) return [];
+  
+  const result = [];
+  let currentInsert = null;
+  let currentDelete = null;
+  
+  // Sort by timestamp and position to ensure proper ordering
+  const sortedOps = [...ops].sort((a, b) => {
+    if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+    return a.position - b.position;
+  });
+  
+  for (const op of sortedOps) {
+    if (op.type === OpType.INSERT) {
+      // If we have a delete pending, flush it first
+      if (currentDelete) {
+        result.push(currentDelete);
+        currentDelete = null;
+      }
+      
+      // Try to combine with previous insert if at adjacent position
+      if (currentInsert && currentInsert.position + currentInsert.text.length === op.position) {
+        currentInsert.text += op.text;
+      } else {
+        // Flush previous insert if it exists
+        if (currentInsert) {
+          result.push(currentInsert);
+        }
+        
+        // Start new insert
+        currentInsert = { ...op };
+      }
+    } else if (op.type === OpType.DELETE) {
+      // If we have an insert pending, flush it first
+      if (currentInsert) {
+        result.push(currentInsert);
+        currentInsert = null;
+      }
+      
+      // Try to combine with previous delete if at adjacent position
+      if (currentDelete && currentDelete.position === op.position) {
+        currentDelete.length += op.length;
+      } else if (currentDelete && op.position + op.length === currentDelete.position) {
+        // Delete comes before current delete
+        currentDelete.position = op.position;
+        currentDelete.length += op.length;
+      } else {
+        // Flush previous delete if it exists
+        if (currentDelete) {
+          result.push(currentDelete);
+        }
+        
+        // Start new delete
+        currentDelete = { ...op };
+      }
+    } else {
+      // For any other operation type, just pass through
+      result.push(op);
+    }
+  }
+  
+  // Flush any remaining operations
+  if (currentInsert) result.push(currentInsert);
+  if (currentDelete) result.push(currentDelete);
+  
+  return result;
 }
 
 /**

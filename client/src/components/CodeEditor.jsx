@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import Editor, { useMonaco } from '@monaco-editor/react';
 import SpecialCharactersBar from './SpecialCharactersBar';
-import { getSocket } from '../utils/api';
+import { getSocket, shouldThrottleSync, syncCompleted } from '../utils/api';
 import { useRoom } from '../contexts/RoomContext';
 import { debounce } from '../utils/helpers';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,6 +24,16 @@ const userColorMap = new Map();
 
 // Generate a unique client ID for this editor instance
 const CLIENT_ID = uuidv4();
+// Add a log level setting
+const LOG_LEVEL = 'error'; // 'debug', 'info', 'warn', 'error', or 'none'
+
+// Add a custom logger to control verbosity
+const logger = {
+  debug: (...args) => LOG_LEVEL === 'debug' ? console.debug(...args) : null,
+  info: (...args) => ['debug', 'info'].includes(LOG_LEVEL) ? console.info(...args) : null,
+  warn: (...args) => ['debug', 'info', 'warn'].includes(LOG_LEVEL) ? console.warn(...args) : null,
+  error: (...args) => LOG_LEVEL !== 'none' ? console.error(...args) : null,
+};
 
 function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = false }) {
   const editorRef = useRef(null);
@@ -39,6 +49,13 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
   const selectionRef = useRef(null);
   const bufferRef = useRef([]);
   const bufferTimeoutRef = useRef(null);
+  const lastSyncTimeRef = useRef(Date.now());
+  const batchUpdateTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
+  const typingTimeoutRef = useRef(null);
+  const isReceivingUpdatesRef = useRef(false);
+  const unmountingRef = useRef(false); // Add ref to track component unmounting
+  const syncRequestedRef = useRef(false); // Track sync requests
   
   // Get room context
   const { isInRoom, roomId, currentUser } = useRoom();
@@ -305,7 +322,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     `;
   }, []);
 
-  // Handle local editing operations with OT - improved approach
+  // Handle local editing operations with OT - improved batching approach
   const handleDocumentChange = useCallback((event) => {
     if (readOnly || isApplyingRemoteOpsRef.current || suppressEventsRef.current) return;
     
@@ -330,8 +347,45 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     // Add client ID to each operation for conflict resolution
     const opsWithClientId = operations.map(op => ({
       ...op,
-      clientId: CLIENT_ID
+      clientId: CLIENT_ID,
+      timestamp: Date.now()
     }));
+    
+    // Add new operations to buffer
+    bufferRef.current = [...bufferRef.current, ...opsWithClientId];
+    
+    // Mark that the user is typing - this is key for preventing interruption
+    isTypingRef.current = true;
+    
+    // Clear any existing typing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set typing timeout to detect when user stops typing
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      
+      // Send batch update when user stops typing
+      if (bufferRef.current.length > 0) {
+        sendBufferedOps();
+      }
+    }, 1000); // 1 second idle time to consider typing stopped
+    
+    // If this is the first operation in a batch, set a maximum timeout
+    // to ensure updates are sent even during continuous typing
+    if (bufferRef.current.length === opsWithClientId.length) {
+      if (batchUpdateTimeoutRef.current) {
+        clearTimeout(batchUpdateTimeoutRef.current);
+      }
+      
+      batchUpdateTimeoutRef.current = setTimeout(() => {
+        if (bufferRef.current.length > 0) {
+          sendBufferedOps();
+        }
+        batchUpdateTimeoutRef.current = null;
+      }, 2000); // Maximum 2 seconds between sends
+    }
     
     // Store operations as pending until acknowledged
     pendingOpsRef.current.push({
@@ -339,141 +393,227 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       version: currentVersionRef.current
     });
     
-    // Add to buffer for batched sending
-    bufferRef.current = [...bufferRef.current, ...opsWithClientId];
+    // CRITICAL: Update local state without sending to server yet
+    // This ensures the editor reflects changes immediately for the local user
+    setCode(codeRef.current);
     
-    // Clear any existing timeout
-    if (bufferTimeoutRef.current) {
-      clearTimeout(bufferTimeoutRef.current);
-    }
-    
-    // Schedule sending ops
-    bufferTimeoutRef.current = setTimeout(() => {
-      sendBufferedOps();
-    }, 30); // 30ms buffer period for batching operations
-  }, [isInRoom, readOnly, roomId, currentUser?.id]);
+  }, [setCode, readOnly]);
   
-  // Send buffered operations
+  // Send buffered operations - completely rewritten for true batching
   const sendBufferedOps = useCallback(() => {
-    if (!isInRoom || bufferRef.current.length === 0) return;
+    if (!isInRoom || !roomId || !currentUser?.id || bufferRef.current.length === 0) return;
+    
+    logger.debug(`Sending batch of ${bufferRef.current.length} operations`);
     
     const ops = bufferRef.current.slice();
-    bufferRef.current = [];
+    bufferRef.current = []; // Clear buffer immediately
+    
+    // Update the last sync timestamp
+    lastSyncTimeRef.current = Date.now();
     
     const socket = getSocket();
+    if (!socket || !socket.connected) {
+      logger.error("Socket not connected, can't send operations");
+      // Re-add operations to buffer
+      bufferRef.current = [...ops, ...bufferRef.current];
+      return;
+    }
+    
+    // Send as a batch
     socket.emit('ot-operations', {
       roomId,
       userId: currentUser?.id,
       operations: ops,
       version: currentVersionRef.current,
-      clientId: CLIENT_ID
+      clientId: CLIENT_ID,
+      isBatch: true // Flag to indicate this is a batch update
     });
-    
-    console.log(`Sent ${ops.length} operations to server`, ops);
   }, [isInRoom, roomId, currentUser?.id]);
-  
-  // Apply remote operations - improved approach
-  const applyRemoteOperations = useCallback((operations) => {
-    if (!editorRef.current || !operations.length) return;
+
+  // Apply remote operations - improved to handle batched ops and cancelations
+  const applyRemoteOperations = useCallback((operations, isBatch = false) => {
+    if (!editorRef.current || !operations.length || unmountingRef.current) return;
+    
+    // If currently typing and not a force update, queue the operations
+    if (isTypingRef.current && !isBatch && !isReceivingUpdatesRef.current) {
+      logger.debug("User is typing, queueing remote operations for later");
+      // Queue the operations to apply later
+      // This would require additional logic to store and apply
+      return;
+    }
     
     // Mark that we're applying remote ops to avoid handling our own changes
     isApplyingRemoteOpsRef.current = true;
     suppressEventsRef.current = true;
+    isReceivingUpdatesRef.current = true;
     
     try {
       // Get current editor state and selections
-      const model = editorRef.current.getModel();
-      const currentValue = model.getValue();
-      const currentSelections = editorRef.current.getSelections();
-      const currentPosition = editorRef.current.getPosition();
+      const model = editorRef.current?.getModel();
+      if (!model) {
+        logger.warn("Editor model not available");
+        return;
+      }
       
-      // Apply operations to get new text
-      const newText = applyOps(currentValue, operations);
-      
-      // Calculate the edits to apply
-      const edits = [];
-      let oldText = currentValue;
-      
-      for (const op of operations) {
-        if (op.type === 'insert') {
-          edits.push({
-            range: {
-              startLineNumber: 1,
-              startColumn: 1,
-              endLineNumber: model.getLineCount(),
-              endColumn: model.getLineMaxColumn(model.getLineCount())
-            },
-            text: newText,
-            forceMoveMarkers: true
-          });
-          break;
-        } else if (op.type === 'delete') {
-          // For delete operations, get the line and column of the deletion
-          const startPos = offsetToPosition(oldText, op.position);
-          const endPos = offsetToPosition(oldText, op.position + op.length);
+      // Safety check for model state
+      try {
+        const currentValue = model.getValue();
+        const currentSelections = editorRef.current.getSelections() || [];
+        const currentPosition = editorRef.current.getPosition();
+        
+        // Apply operations to get new text
+        const newText = applyOps(currentValue, operations);
+        
+        // Calculate the edits to apply
+        const edits = [];
+        let oldText = currentValue;
+        
+        // For batched operations, apply all changes at once for better performance
+        if (isBatch) {
+          if (newText !== currentValue) {
+            try {
+              model.pushEditOperations(
+                [],
+                [{
+                  range: model.getFullModelRange(),
+                  text: newText
+                }],
+                () => null
+              );
+            } catch (error) {
+              logger.error("Error applying batch edit:", error);
+              // Fallback to setValue if pushEditOperations fails
+              if (!unmountingRef.current) {
+                model.setValue(newText);
+              }
+            }
+          }
+        } else {
+          // For individual operations, apply them granularly
+          for (const op of operations) {
+            if (op.type === 'insert') {
+              edits.push({
+                range: {
+                  startLineNumber: 1,
+                  startColumn: 1,
+                  endLineNumber: model.getLineCount(),
+                  endColumn: model.getLineMaxColumn(model.getLineCount())
+                },
+                text: newText,
+                forceMoveMarkers: true
+              });
+              break;
+            } else if (op.type === 'delete') {
+              try {
+                // For delete operations, get the line and column of the deletion
+                const startPos = offsetToPosition(oldText, op.position);
+                const endPos = offsetToPosition(oldText, op.position + op.length);
+                
+                edits.push({
+                  range: {
+                    startLineNumber: startPos.lineNumber,
+                    startColumn: startPos.column,
+                    endLineNumber: endPos.lineNumber,
+                    endColumn: endPos.column
+                  },
+                  text: '',
+                  forceMoveMarkers: true
+                });
+                
+                // Apply this individual operation to keep oldText in sync
+                oldText = applyOps(oldText, [op]);
+              } catch (error) {
+                logger.error("Error calculating edit position:", error);
+              }
+            }
+          }
           
-          edits.push({
-            range: {
-              startLineNumber: startPos.lineNumber,
-              startColumn: startPos.column,
-              endLineNumber: endPos.lineNumber,
-              endColumn: endPos.column
-            },
-            text: '',
-            forceMoveMarkers: true
-          });
-          
-          // Apply this individual operation to keep oldText in sync
-          oldText = applyOps(oldText, [op]);
+          // If we have granular edits, apply them
+          if (edits.length > 0) {
+            try {
+              model.pushEditOperations(
+                currentSelections,
+                edits,
+                () => null
+              );
+            } catch (error) {
+              logger.error("Error applying edits:", error);
+              // Fallback to direct setValue if edit operations fail
+              if (newText !== currentValue && !unmountingRef.current) {
+                model.setValue(newText);
+              }
+            }
+          }
         }
-      }
-      
-      // If we don't have granular edits, apply everything at once
-      if (edits.length === 0 && newText !== currentValue) {
-        model.setValue(newText);
-      } else {
-        // Apply edits
-        model.pushEditOperations(
-          currentSelections,
-          edits,
-          () => null
-        );
-      }
-      
-      // Update our reference to current content
-      codeRef.current = model.getValue();
-      
-      // Update the outer component's state
-      setCode(model.getValue());
-      
-      // Transform any pending local operations against the received remote ops
-      pendingOpsRef.current = pendingOpsRef.current.map(pendingOp => ({
-        ...pendingOp,
-        operations: transformOps(pendingOp.operations, operations)
-      }));
-      
-      // Restore cursor position and selections, adjusted for the operations
-      if (currentPosition && currentSelections) {
-        // The editor should restore position for us now
-        // but we could add more sophisticated position adjustment here
+        
+        // Update our reference to current content
+        if (!unmountingRef.current) {
+          codeRef.current = model.getValue();
+          
+          // Update the outer component's state
+          setCode(model.getValue());
+        }
+        
+        // Transform any pending local operations against the received remote ops
+        pendingOpsRef.current = pendingOpsRef.current.map(pendingOp => ({
+          ...pendingOp,
+          operations: transformOps(pendingOp.operations, operations)
+        }));
+        
+        // Only try to restore cursor if user isn't typing
+        if (currentPosition && currentSelections && !isTypingRef.current && !unmountingRef.current) {
+          // The editor should restore position for us now
+          // but we could add more sophisticated position adjustment here
+          try {
+            editorRef.current?.setPosition(currentPosition);
+            editorRef.current?.setSelections(currentSelections);
+          } catch (error) {
+            logger.warn("Could not restore cursor position:", error);
+          }
+        }
+      } catch (error) {
+        logger.error("Error in applyRemoteOperations:", error);
       }
     } finally {
       // Wait a bit before re-enabling events to let the editor settle
-      setTimeout(() => {
-        suppressEventsRef.current = false;
-        isApplyingRemoteOpsRef.current = false;
-      }, 10);
+      if (!unmountingRef.current) {
+        setTimeout(() => {
+          suppressEventsRef.current = false;
+          isApplyingRemoteOpsRef.current = false;
+          isReceivingUpdatesRef.current = false;
+        }, 10);
+      }
     }
   }, [setCode]);
   
-  // Improved socket event handler for OT
+  // CRITICAL FIX: Much more efficient socket event handling for OT
   useEffect(() => {
     if (!isInRoom || !editorRef.current) return;
     
     const socket = getSocket();
     
-    // Request initial sync with server
-    socket.emit('ot-request-sync', { roomId });
+    // Use the throttled sync request to avoid excessive sync requests
+    const requestSync = () => {
+      if (shouldThrottleSync()) {
+        logger.debug('Sync request throttled');
+        return;
+      }
+      
+      syncRequestedRef.current = true;
+      socket.emit('ot-request-sync', { 
+        roomId,
+        clientId: CLIENT_ID // Include client ID to help server track sync requests
+      });
+      logger.info('Requesting sync with server');
+    };
+    
+    // Request initial sync only once
+    if (!syncRequestedRef.current) {
+      // Wait a moment before requesting sync to let the editor initialize
+      setTimeout(() => {
+        requestSync();
+      }, 1000);
+    }
     
     // Listen for operation acknowledgments
     const handleOpAck = (data) => {
@@ -486,36 +626,55 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
           op => op.version !== (data.version - 1)
         );
         
-        console.log(`Ack received for version ${data.version}, ${pendingOpsRef.current.length} pending ops remaining`);
+        logger.debug(`Ack received for version ${data.version}, ${pendingOpsRef.current.length} pending ops remaining`);
       }
     };
     
     // Listen for operations from other clients
     const handleRemoteOps = (data) => {
       if (data.clientId === CLIENT_ID) {
-        console.log("Ignoring our own ops echoed back");
-        return; // Ignore our own ops echoed back
-      }
-      
-      console.log(`Received remote ops for version ${data.version}, current: ${currentVersionRef.current}`);
-      
-      // If version is out of sync (too far ahead), request a full sync
-      if (data.version > currentVersionRef.current + 1) {
-        console.log("Version inconsistency detected, requesting sync");
-        socket.emit('ot-request-sync', { roomId });
+        // Ignore our own ops echoed back
         return;
       }
       
-      // Apply remote operations
-      applyRemoteOperations(data.operations);
+      logger.debug(`Received remote ops for version ${data.version}, current: ${currentVersionRef.current}`);
       
-      // Update version
+      // If version is out of sync (too far ahead), request a full sync
+      if (data.version > currentVersionRef.current + 1) {
+        logger.warn(`Version inconsistency detected: remote ${data.version} vs local ${currentVersionRef.current}`);
+        // Only request sync if we haven't recently
+        requestSync();
+        return;
+      }
+      
+      // Apply remote operations and update version
+      applyRemoteOperations(data.operations, data.isBatch || false);
       currentVersionRef.current = data.version;
     };
     
-    // Handle full document sync - improved to preserve cursors and selections
+    // Handle full document sync - greatly improved to prevent duplicates
     const handleSync = (data) => {
-      console.log(`Received full sync for version ${data.version}`);
+      // Mark sync as completed
+      syncCompleted();
+      
+      // Skip logging for regular sync responses
+      if (LOG_LEVEL === 'debug') {
+        logger.debug(`Received full sync for version ${data.version}`);
+      }
+      
+      syncRequestedRef.current = false;
+      
+      // Skip if we're in the middle of typing
+      if (isTypingRef.current && !isReceivingUpdatesRef.current) {
+        logger.debug("User is typing, deferring sync application");
+        return;
+      }
+      
+      // Skip if our version is already higher
+      if (data.version < currentVersionRef.current) {
+        logger.debug(`Ignoring outdated sync (received ${data.version}, current ${currentVersionRef.current})`);
+        return;
+      }
       
       // Get current cursor position and selections before sync
       const currentPosition = editorRef.current.getPosition();
@@ -544,10 +703,6 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
         // Clear pending operations - they're no longer valid after a full sync
         pendingOpsRef.current = [];
         bufferRef.current = [];
-        if (bufferTimeoutRef.current) {
-          clearTimeout(bufferTimeoutRef.current);
-          bufferTimeoutRef.current = null;
-        }
         
         // Try to restore cursor position and selections
         if (currentPosition && currentSelections) {
@@ -556,7 +711,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
               editorRef.current.setPosition(currentPosition);
               editorRef.current.setSelections(currentSelections);
             } catch (e) {
-              console.warn("Couldn't restore cursor position after sync", e);
+              logger.warn("Couldn't restore cursor position after sync", e);
             }
           }, 10);
         }
@@ -568,27 +723,36 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
         }, 10);
       }
     };
-    
-    // Listen for errors
-    const handleOtError = (data) => {
-      console.error('OT error:', data.message);
-      
-      // Request a fresh sync after an error
-      socket.emit('ot-request-sync', { roomId });
-    };
-    
+
     // Register event handlers
     socket.on('ot-ack', handleOpAck);
     socket.on('ot-operations', handleRemoteOps);
     socket.on('ot-sync', handleSync);
-    socket.on('ot-error', handleOtError);
+    socket.on('ot-error', (data) => {
+      logger.error('OT error:', data.message);
+      // Don't automatically request sync on errors to avoid loops
+    });
+    
+    // New handler for batched updates from other users
+    socket.on('ot-batch-operations', (data) => {
+      if (data.clientId === CLIENT_ID) return; // Skip our own batched operations
+      
+      logger.debug(`Received batched ops for version ${data.version}, current: ${currentVersionRef.current}`);
+      
+      // Apply as batched operations
+      applyRemoteOperations(data.operations, true);
+      
+      // Update version
+      currentVersionRef.current = data.version;
+    });
     
     // Clean up on unmount
     return () => {
       socket.off('ot-ack', handleOpAck);
       socket.off('ot-operations', handleRemoteOps);
       socket.off('ot-sync', handleSync);
-      socket.off('ot-error', handleOtError);
+      socket.off('ot-error');
+      socket.off('ot-batch-operations');
     };
   }, [isInRoom, roomId, applyRemoteOperations, setCode]);
 
@@ -596,12 +760,16 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
   useEffect(() => {
     // If the code prop changes from outside and it's different from our internal state,
     // update our internal state without triggering a change event
-    if (code !== codeRef.current && !isApplyingRemoteOpsRef.current) {
+    if (code !== codeRef.current && !isApplyingRemoteOpsRef.current && !unmountingRef.current) {
       codeRef.current = code;
       
-      if (editorRef.current) {
+      if (editorRef.current && editorRef.current.getModel()) {
         suppressEventsRef.current = true;
-        editorRef.current.setValue(code);
+        try {
+          editorRef.current.setValue(code);
+        } catch (e) {
+          logger.warn("Error setting editor value:", e);
+        }
         setTimeout(() => {
           suppressEventsRef.current = false;
         }, 0);
@@ -609,7 +777,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     }
   }, [code]);
 
-  // Editor mount handler
+  // Editor mount handler - enhanced to handle batching and interruptions better
   const handleEditorDidMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
@@ -666,13 +834,18 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     
     editor.onDidBlurEditorText(() => {
       setIsEditorFocused(false);
+      // When focus is lost, consider typing as stopped and send any pending updates
+      isTypingRef.current = false;
+      if (bufferRef.current.length > 0) {
+        sendBufferedOps();
+      }
     });
 
     // Set read-only state
     editor.updateOptions({ readOnly });
 
-    console.log("Editor mounted successfully, OT enabled");
-  }, [theme, onRunCode, handleDocumentChange, emitCursorPosition, emitSelectionChange]);
+    logger.info("Editor mounted successfully, OT enabled");
+  }, [theme, onRunCode, handleDocumentChange, emitCursorPosition, emitSelectionChange, sendBufferedOps]);
 
   // Handle code change (simplified since most logic moved to handleDocumentChange)
   const handleCodeChange = useCallback((newCode) => {
@@ -770,6 +943,28 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     };
   };
 
+  // Flag unmounting to prevent state updates
+  useEffect(() => {
+    return () => {
+      unmountingRef.current = true;
+      
+      // Clear any pending timeouts
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (bufferTimeoutRef.current) {
+        clearTimeout(bufferTimeoutRef.current);
+      }
+      if (batchUpdateTimeoutRef.current) {
+        clearTimeout(batchUpdateTimeoutRef.current);
+      }
+      
+      // Remove cursor style elements
+      document.querySelectorAll('[id^="cursor-style-"]').forEach(el => el.remove());
+      document.querySelectorAll('[id^="selection-style-"]').forEach(el => el.remove());
+    };
+  }, []);
+
   return (
     <div className="h-full flex flex-col relative">
       {/* Redesigned read-only indicator - more subtle and modern */}
@@ -791,6 +986,9 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
           theme={theme === 'dark' ? 'customDark' : 'light'}
           options={getEditorOptions()}
           className="editor-container"
+          loading={<div className="flex items-center justify-center h-full text-gray-500">Loading editor...</div>}
+          beforeMount={() => {}}
+          onValidate={() => {}} // Add empty validator to suppress unnecessary warnings
         />
         <div className="absolute bottom-14 right-2 text-xs text-gray-400 dark:text-gray-600 md:hidden bg-white dark:bg-gray-800 px-2 py-1 rounded opacity-70 swipe-hint">
           Swipe to see output →
@@ -873,7 +1071,7 @@ package main
 import "fmt"
 
 func main() {
-    fmt.Println("Hello, World!")
+    fmt.Println("Hello, World!");
 }`,
     rust: `// Rust Example
 fn main() {

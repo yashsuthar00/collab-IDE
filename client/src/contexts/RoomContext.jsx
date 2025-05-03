@@ -293,14 +293,31 @@ export const RoomProvider = ({ children }) => {
       const userName = getFromStorage('user_name');
       
       if (roomId && userName && socket) {
-        console.log(`Attempting to rejoin existing room: ${roomId} as ${userName}`);
-        dispatch({ type: ACTION_TYPES.JOIN_ROOM_START });
-        socket.emit('rejoin-room', { roomId, userName });
+        // Only attempt to rejoin if we have both room ID and username
+        // AND the page wasn't just refreshed (check URL parameters)
+        const urlParams = new URLSearchParams(window.location.search);
+        const isDirectNavigation = !urlParams.has('suppressRejoin');
+        
+        if (isDirectNavigation) {
+          console.log(`Attempting to rejoin existing room: ${roomId} as ${userName}`);
+          dispatch({ type: ACTION_TYPES.JOIN_ROOM_START });
+          socket.emit('rejoin-room', { roomId, userName });
+        } else {
+          // Clear the stored room if we're not rejoining
+          localStorage.removeItem('current_room');
+        }
       }
     };
     
+    // Don't attempt to rejoin immediately on page load
+    // Instead, wait a short time to ensure the socket is properly connected
+    // and the user has had time to view the initial page
     if (socket) {
-      checkExistingRoom();
+      const timer = setTimeout(() => {
+        checkExistingRoom();
+      }, 1500);
+      
+      return () => clearTimeout(timer);
     }
   }, [socket]);
   
