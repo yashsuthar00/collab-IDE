@@ -1,5 +1,7 @@
-import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus, HelpCircle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus, HelpCircle, LogIn, UserCircle, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from '../store/authSlice';
 
 function Navbar({ 
   language, 
@@ -18,13 +20,18 @@ function Navbar({
   onOpenUserPanel,
   onLeaveRoom,
   onJoinRoom,
-  onStartTour // Add this prop
+  onStartTour,
+  onOpenAuthModal
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+  const dispatch = useDispatch();
+  const { isAuthenticated, user } = useSelector(state => state.auth);
   
   const handleLanguageChange = (e) => {
     const selectedLanguage = languageOptions.find(lang => lang.id === e.target.value);
-    if (selectedLanguage) {
+    if (selectedLanguage) { 
       setLanguage(selectedLanguage);
       setMenuOpen(false);
     }
@@ -49,7 +56,31 @@ function Navbar({
     onJoinRoom();
   };
 
+  const handleLogout = () => {
+    dispatch(logout());
+    setMenuOpen(false);
+    setUserMenuOpen(false);
+  };
+
+  const handleAuthClick = () => {
+    setMenuOpen(false);
+    onOpenAuthModal();
+  };
+
   useEffect(() => {}, [theme]);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <nav id="navbar" className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 px-4 shadow-sm">
@@ -70,6 +101,42 @@ function Navbar({
         </div>
 
         <div className="hidden md:flex items-center space-x-3">
+          {/* Auth button in navbar */}
+          {!isAuthenticated ? (
+            <button
+              id="login-button"
+              onClick={handleAuthClick}
+              className="flex items-center px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <LogIn className="w-4 h-4 mr-1.5" />
+              Log in
+            </button>
+          ) : (
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center space-x-1 px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <UserCircle className="w-4 h-4 mr-1" />
+                <span className="truncate max-w-[100px]">{user.username || user.email}</span>
+                <ChevronDown className="w-4 h-4 ml-1" />
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Log out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {!isInRoom ? (
             <button
               id="collaboration-button"
@@ -186,25 +253,64 @@ function Navbar({
           </button>
         </div>
 
-        <button
-          onClick={handleRunClick}
-          disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
-          className={`md:hidden px-3 py-1.5 rounded-md flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${
-            isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))
-              ? 'opacity-70 cursor-not-allowed'
-              : ''
-          }`}
-          title="Run code"
-        >
-          {isLoading ? (
-            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+        <div className="md:hidden flex space-x-2">
+          {/* Mobile Auth Button */}
+          {!isAuthenticated ? (
+            <button
+              onClick={handleAuthClick}
+              className="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+            >
+              <LogIn className="w-5 h-5" />
+            </button>
           ) : (
-            <Play className="w-4 h-4" />
+            <button
+              onClick={() => {
+                setMenuOpen(!menuOpen);
+              }}
+              className="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+            >
+              <UserCircle className="w-5 h-5" />
+            </button>
           )}
-        </button>
+
+          <button
+            onClick={handleRunClick}
+            disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
+            className={`md:hidden px-3 py-1.5 rounded-md flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${
+              isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))
+                ? 'opacity-70 cursor-not-allowed'
+                : ''
+            }`}
+            title="Run code"
+          >
+            {isLoading ? (
+              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className={`md:hidden ${menuOpen ? 'block' : 'hidden'} pt-3 pb-2 space-y-3`}>
+        {/* Add this mobile login button */}
+        {isAuthenticated && (
+          <div className="px-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Logged in as {user.username || user.email}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Log out
+            </button>
+          </div>
+        )}
+
         <div className="px-2 space-y-2">
           {!isInRoom ? (
             <button

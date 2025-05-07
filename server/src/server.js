@@ -5,6 +5,9 @@ const { Server } = require('socket.io');
 const dotenv = require('dotenv');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
+const connectDB = require('./config/db'); // Import database connection
+
+// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -16,6 +19,11 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
   },
 });
+
+// Connect to MongoDB
+connectDB()
+  .then(() => console.log('MongoDB connection established'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Language configuration for Piston API
 const languageVersions = {
@@ -45,6 +53,9 @@ const ACCESS_LEVELS = {
 
 app.use(cors());
 app.use(express.json());
+
+// Add auth routes
+app.use('/api/auth', require('./routes/authRoutes'));
 
 // API endpoint for code execution
 app.post('/api/sessions/:sessionId/execute', async (req, res) => {

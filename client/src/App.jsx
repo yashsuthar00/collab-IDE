@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo, Component, useCallback } from 'react';
+import { Provider } from 'react-redux'; // Add this import
+import { store } from './store'; // Add this import
 import Navbar from './components/Navbar';
 import CodeEditor from './components/CodeEditor';
 import OutputPanel from './components/OutputPanel';
 import UserPanel from './components/UserPanel';
 import RoomJoinModal from './components/RoomJoinModal';
+import AuthModal from './components/AuthModal'; // Add this import
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
 import api, { getSocket } from './utils/api';
@@ -89,6 +92,7 @@ function CollaborativeApp() {
 
   const [isUserPanelOpen, setIsUserPanelOpen] = useState(false);
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false); // Add this state
   const [socket, setSocket] = useState(null);
 
   const toggleMobileView = () => {
@@ -516,8 +520,9 @@ function CollaborativeApp() {
         currentUser={currentUser}
         onOpenUserPanel={() => setIsUserPanelOpen(true)}
         onLeaveRoom={leaveRoom}
-        onJoinRoom={handleOpenRoomModal} // Use the new handler
+        onJoinRoom={handleOpenRoomModal}
         onStartTour={handleStartTour}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)} // Add this prop
       />
       
       <div className="md:hidden flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -591,7 +596,12 @@ function CollaborativeApp() {
       
       <RoomJoinModal 
         isOpen={isRoomModalOpen} 
-        onClose={handleCloseRoomModal} // Use the new handler
+        onClose={handleCloseRoomModal}
+      />
+
+      <AuthModal 
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
       />
 
       {/* Help button with fixed position and onClick handler */}
@@ -612,9 +622,11 @@ function CollaborativeApp() {
 
 function App() {
   return (
-    <RoomProvider>
-      <CollaborativeApp />
-    </RoomProvider>
+    <Provider store={store}>
+      <RoomProvider>
+        <CollaborativeApp />
+      </RoomProvider>
+    </Provider>
   );
 }
 

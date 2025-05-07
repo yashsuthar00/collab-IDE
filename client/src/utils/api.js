@@ -35,7 +35,7 @@ apiClient.interceptors.response.use(
   (error) => {
     // Handle common error scenarios
     const errorResponse = {
-      message: 'An error occurred while processing your request.',
+      message: error.response?.data?.message || 'An error occurred while processing your request.',
       status: error.response?.status || 500,
       details: error.response?.data || {},
     };
