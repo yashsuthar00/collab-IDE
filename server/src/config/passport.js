@@ -20,7 +20,10 @@ module.exports = function() {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackURL: getCallbackURL('google'),
-        scope: ['profile', 'email']
+        scope: ['profile', 'email'],
+        prompt: 'select_account', // Always show account selection screen
+        display: 'popup', // Use popup mode for better UX
+        name: 'Collab IDE'  // Use a custom name that matches your app in GCP
       },
       async (accessToken, refreshToken, profile, done) => {
         try {

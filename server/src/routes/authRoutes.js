@@ -12,7 +12,22 @@ router.get('/me', protect, getMe);
 router.post('/logout', logout);
 
 // Google OAuth routes
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google', (req, res, next) => {
+  console.log('Starting Google OAuth flow with parameters:', {
+    callbackURL: process.env.NODE_ENV === 'production' 
+      ? `${process.env.API_BASE_URL || 'https://collab-ide-ep5q.onrender.com'}/api/auth/google/callback`
+      : 'http://localhost:5000/api/auth/google/callback',
+    clientID: process.env.GOOGLE_CLIENT_ID ? 
+      `${process.env.GOOGLE_CLIENT_ID.substring(0, 5)}...` : 'not set',
+    appName: process.env.APP_NAME || 'Collab IDE'
+  });
+  
+  passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    prompt: 'select_account',
+    display: 'popup'
+  })(req, res, next);
+});
 router.get('/google/callback', 
   passport.authenticate('google', { 
     failureRedirect: process.env.NODE_ENV === 'production' 
