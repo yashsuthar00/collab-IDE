@@ -3,12 +3,20 @@ import { io } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 import { getFromStorage } from './storage';
 
-// Determine base URL based on environment
+// Determine base URL based on environment with direct URLs
 const getBaseUrl = () => {
-  if (import.meta.env.PROD || import.meta.env.VITE_NODE_ENV === 'production') {
-    return import.meta.env.VITE_REACT_APP_API_URL || 'https://api.collab-ide.com'; // Replace with your production API URL
+  if (import.meta.env.PROD) {
+    return 'https://collab-ide-ep5q.onrender.com'; // Direct production URL
   }
-  return 'http://localhost:5000'; // Default development URL
+  return 'http://localhost:5000'; // Direct development URL
+};
+
+// Socket URL handling with direct URLs
+export const getSocketUrl = () => {
+  if (import.meta.env.PROD) {
+    return 'wss://collab-ide-ep5q.onrender.com'; // Direct production socket URL
+  }
+  return 'ws://localhost:5000'; // Direct development socket URL
 };
 
 // Create axios instance with configuration
@@ -23,7 +31,11 @@ const apiClient = axios.create({
 // Add request interceptor for authentication if needed
 apiClient.interceptors.request.use(
   (config) => {
-    // You can add auth tokens here if needed in the future
+    // Add auth token to requests if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -63,6 +75,7 @@ const api = {
     login: (credentials) => apiClient.post('/api/auth/login', credentials),
     register: (userData) => apiClient.post('/api/auth/register', userData),
     logout: () => apiClient.post('/api/auth/logout'),
+    getMe: () => apiClient.get('/api/auth/me') // Add this method
   },
   
   // Enhanced collaboration features
@@ -94,38 +107,52 @@ const api = {
 
 // Enhanced Socket.io integration for real-time collaboration
 let socket = null;
+let socketConnectionPromise = null;
 
 export const initializeSocket = () => {
   if (socket && socket.connected) return socket;
   
-  const socketUrl = import.meta.env.PROD 
-    ? import.meta.env.VITE_REACT_APP_SOCKET_URL || 'wss://api.collab-ide.com'
-    : 'ws://localhost:5000';
+  // If we already have a connection attempt in progress, return that promise
+  if (socketConnectionPromise) return socket;
   
-  const userName = getFromStorage('user_name') || `User-${uuidv4().slice(0, 5)}`;
+  const socketUrl = getSocketUrl();
   
+  // Get username from localStorage or use anonymous ID
+  const user = JSON.parse(localStorage.getItem('user'));
+  const userName = user?.username || 
+                  getFromStorage('user_name') || 
+                  `User-${uuidv4().slice(0, 5)}`;
+  
+  // Create socket instance with configured options
   socket = io(socketUrl, {
     transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     query: { userName },
-    autoConnect: true // Ensure this is true for proper connection
+    autoConnect: true
   });
   
-  // Socket event handlers
-  socket.on('connect', () => {
-    console.log('Socket connected:', socket.id);
-    // Reset the sync counter when we connect
-    window._syncRequestCount = 0;
+  // Wait for socket to be fully connected before using it
+  socketConnectionPromise = new Promise((resolve) => {
+    // Listen for the connect event to know when socket is ready
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id);
+      // Reset the sync counter when we connect
+      window._syncRequestCount = 0;
+      socketConnectionPromise = null; // Clear the promise
+      resolve(socket);
+    });
   });
   
   socket.on('disconnect', () => {
     console.log('Socket disconnected');
+    socketConnectionPromise = null; // Clear the promise on disconnect
   });
   
   socket.on('error', (error) => {
     console.error('Socket error:', error);
+    socketConnectionPromise = null; // Clear the promise on error
   });
   
   // Handle room errors without console spam
@@ -177,6 +204,26 @@ export const getSocket = () => {
     return initializeSocket();
   }
   return socket;
+};
+
+// New function to get socket and ensure it's connected
+export const getConnectedSocket = async () => {
+  const socketInstance = getSocket();
+  
+  if (!socketInstance.connected) {
+    // If not connected, wait for connection
+    await new Promise((resolve) => {
+      if (socketInstance.connected) {
+        resolve();
+      } else {
+        socketInstance.once('connect', () => {
+          resolve();
+        });
+      }
+    });
+  }
+  
+  return socketInstance;
 };
 
 // Helper function to generate room invite link

@@ -6,6 +6,10 @@ const dotenv = require('dotenv');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const connectDB = require('./config/db'); // Import database connection
+const passport = require('passport');
+const passportConfig = require('./config/passport');
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
 
 // Load environment variables
 dotenv.config();
@@ -24,6 +28,51 @@ const io = new Server(server, {
 connectDB()
   .then(() => console.log('MongoDB connection established'))
   .catch(err => console.error('MongoDB connection error:', err));
+
+// Middleware
+
+// CORS middleware with hard-coded allowed origins
+app.use(cors({
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5173',       // Local development
+      'https://colab-ide.vercel.app' // Production
+    ];
+    
+    // Allow requests with no origin (like mobile apps, curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked request from:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json());
+app.use(cookieParser());
+
+// Session configuration
+app.use(session({
+  secret: process.env.JWT_SECRET || 'collab-ide-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize passport
+passportConfig();
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Language configuration for Piston API
 const languageVersions = {
@@ -50,9 +99,6 @@ const ACCESS_LEVELS = {
   RUNNER: 'runner',
   VIEWER: 'viewer',
 };
-
-app.use(cors());
-app.use(express.json());
 
 // Add auth routes
 app.use('/api/auth', require('./routes/authRoutes'));

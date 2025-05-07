@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useMemo, Component, useCallback } from 'react';
 import { Provider } from 'react-redux'; // Add this import
 import { store } from './store'; // Add this import
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Add this import
 import Navbar from './components/Navbar';
 import CodeEditor from './components/CodeEditor';
 import OutputPanel from './components/OutputPanel';
 import UserPanel from './components/UserPanel';
 import RoomJoinModal from './components/RoomJoinModal';
 import AuthModal from './components/AuthModal'; // Add this import
+import OAuthCallback from './components/OAuthCallback'; // Add this import
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
-import api, { getSocket } from './utils/api';
+import api, { getConnectedSocket } from './utils/api';
 import { 
   createMainTour, 
   createCollaborationTour, 
@@ -162,41 +164,60 @@ function CollaborativeApp() {
 
   useEffect(() => {
     if (isInRoom && roomId) {
-      const socketInstance = getSocket();
-      setSocket(socketInstance);
-      
-      setSessionId(roomId);
-      
-      socketInstance.on('code-update', (data) => {
-        if (data.roomId === roomId) {
-          setCode(data.code);
+      const initSocket = async () => {
+        try {
+          const socketInstance = await getConnectedSocket();
+          setSocket(socketInstance);
+          
+          setSessionId(roomId);
+          
+          // Setup socket event listeners
+          const codeUpdateHandler = (data) => {
+            if (data.roomId === roomId) {
+              setCode(data.code);
+            }
+          };
+          
+          const outputUpdateHandler = (data) => {
+            if (data.roomId === roomId) {
+              setOutput(data.output);
+              setInput(data.input);
+              setActiveTab('output');
+            }
+          };
+          
+          const languageChangeHandler = (data) => {
+            if (data.roomId === roomId) {
+              const newLanguage = languageOptions.find(lang => lang.id === data.languageId);
+              if (newLanguage) {
+                setLanguage(newLanguage);
+              }
+            }
+          };
+          
+          // Register event handlers
+          socketInstance.on('code-update', codeUpdateHandler);
+          socketInstance.on('output-update', outputUpdateHandler);
+          socketInstance.on('language-change', languageChangeHandler);
+          
+          // Return cleanup function
+          return () => {
+            socketInstance.off('code-update', codeUpdateHandler);
+            socketInstance.off('output-update', outputUpdateHandler);
+            socketInstance.off('language-change', languageChangeHandler);
+          };
+        } catch (error) {
+          console.error('Failed to initialize socket:', error);
+          return () => {};
         }
-      });
-      
-      socketInstance.on('output-update', (data) => {
-        if (data.roomId === roomId) {
-          setOutput(data.output);
-          setInput(data.input);
-          setActiveTab('output');
-        }
-      });
-      
-      socketInstance.on('language-change', (data) => {
-        if (data.roomId === roomId) {
-          const newLanguage = languageOptions.find(lang => lang.id === data.languageId);
-          if (newLanguage) {
-            setLanguage(newLanguage);
-          }
-        }
-      });
-      
-      return () => {
-        socketInstance.off('code-update');
-        socketInstance.off('output-update');
-        socketInstance.off('language-change');
       };
+      
+      // Initialize socket and store the cleanup function
+      const cleanup = initSocket();
+      return () => cleanup.then(cleanupFn => cleanupFn());
     } else {
       setSessionId('default-session');
+      return () => {};
     }
   }, [isInRoom, roomId]);
 
@@ -243,16 +264,21 @@ function CollaborativeApp() {
     }
   };
 
-  const handleCodeChange = (newCode) => {
+  const handleCodeChange = async (newCode) => {
     if (newCode !== undefined && newCode !== null) {
       setCode(newCode);
       
-      if (isInRoom && socket && checkPermission('EDIT_CODE')) {
-        socket.emit('code-change', {
-          roomId,
-          userId: currentUser.id,
-          code: newCode
-        });
+      if (isInRoom && checkPermission('EDIT_CODE')) {
+        try {
+          const socketInstance = await getConnectedSocket();
+          socketInstance.emit('code-change', {
+            roomId,
+            userId: currentUser.id,
+            code: newCode
+          });
+        } catch (error) {
+          console.error('Failed to send code change:', error);
+        }
       }
     }
   };
@@ -324,16 +350,18 @@ function CollaborativeApp() {
         codeToUse = savedCode;
         console.log(`Loading saved code for ${language.id}`);
       } else {
-        codeToUse = CodeEditor.getLanguageDefaultCode(language.value);
+        // Use a safer way to get default code
+        codeToUse = language.defaultCode || '';
         console.log(`No saved code found for ${language.id}, using default`);
       }
     } else {
-      codeToUse = CodeEditor.getLanguageDefaultCode(language.value);
+      // Use a safer way to get default code
+      codeToUse = language.defaultCode || '';
       console.log(`Auto-save disabled, using default code for ${language.id}`);
     }
     
     setCode(codeToUse);
-  }, [autoSave, language.id, language.value]);
+  }, [autoSave, language.id, language.defaultCode]);
 
   useEffect(() => {
     if (!isInRoom) {
@@ -500,7 +528,10 @@ function CollaborativeApp() {
     setIsRoomModalOpen(false);
   };
 
-  const editorKey = useMemo(() => isInRoom ? `editor-${roomId}` : 'editor-local', [isInRoom, roomId]);
+  const editorKey = useMemo(() => 
+    isInRoom ? `editor-room-${roomId}` : `editor-local-${language.id}`, 
+    [isInRoom, roomId, language.id]
+  );
 
   return (
     <div className={`h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${theme === 'dark' ? 'dark-mode' : 'light-mode'}`}>
@@ -624,7 +655,12 @@ function App() {
   return (
     <Provider store={store}>
       <RoomProvider>
-        <CollaborativeApp />
+        <Router>
+          <Routes>
+            <Route path="/" element={<CollaborativeApp />} />
+            <Route path="/oauth-callback" element={<OAuthCallback />} />
+          </Routes>
+        </Router>
       </RoomProvider>
     </Provider>
   );

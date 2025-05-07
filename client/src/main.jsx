@@ -5,6 +5,22 @@ import './index.css'
 import 'driver.js/dist/driver.css'
 import './css/animations.css' // Import our custom animations
 
+// Silence React Router future flag warnings and socket warnings
+const originalConsoleWarn = console.warn;
+console.warn = function(message, ...args) {
+  if (message && typeof message === 'string' && 
+      (message.includes('React Router Future Flag Warning') || 
+       message.includes('React Router will begin wrapping') ||
+       message.includes('Socket connected but no ID assigned yet'))) {
+    // For socket warnings, downgrade to debug
+    if (message.includes('Socket connected but no ID assigned yet')) {
+      console.debug('Socket initialization in progress - ID not yet assigned');
+    }
+    return;  // Suppress these specific warnings
+  }
+  originalConsoleWarn.apply(console, args ? [message, ...args] : [message]);
+};
+
 // Ensure mobile devices render correctly
 const fixViewportForMobile = () => {
   const viewport = document.querySelector('meta[name=viewport]');
@@ -26,12 +42,21 @@ const initializeTheme = () => {
   }
 };
 
-// Handle uncaught promise rejections related to Monaco editor
+// Handle uncaught promise rejections related to Monaco editor and socket connection errors
 window.addEventListener('unhandledrejection', event => {
   // Check if this is a Monaco editor cancelation - these are expected and can be ignored
-  if (event.reason && event.reason.type === 'cancelation' && event.reason.msg === 'operation is manually canceled') {
+  if (event.reason && event.reason.type === 'cancelation' && 
+      event.reason.msg === 'operation is manually canceled') {
     event.preventDefault(); // Prevent the error from appearing in console
-    console.debug('Suppressed Monaco editor cancelation event');
+    return;
+  }
+  
+  // Check if this is a socket connection error we can handle
+  if (event.reason && event.reason.message && 
+      (event.reason.message.includes('socket') || 
+       event.reason.message.includes('WebSocket'))) {
+    console.debug('Socket connection issue:', event.reason.message);
+    event.preventDefault();
     return;
   }
   

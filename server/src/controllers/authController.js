@@ -125,7 +125,8 @@ exports.getMe = async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        avatar: user.avatar // Include the avatar URL
       }
     });
   } catch (error) {
@@ -143,4 +144,48 @@ exports.logout = (req, res) => {
     success: true,
     message: 'Logged out successfully'
   });
+};
+
+// Google OAuth callback
+exports.googleCallback = (req, res) => {
+  try {
+    // Get token for the authenticated user
+    const token = req.user.getSignedToken();
+    
+    // Use direct URLs based on environment
+    const frontendURL = process.env.NODE_ENV === 'production'
+      ? 'https://colab-ide.vercel.app'  // Direct production client URL
+      : 'http://localhost:5173';  // Direct local client URL
+    
+    // Redirect to frontend with token
+    res.redirect(`${frontendURL}/oauth-callback?token=${token}`);
+  } catch (error) {
+    console.error('Google callback error:', error);
+    const redirectURL = process.env.NODE_ENV === 'production'
+      ? 'https://colab-ide.vercel.app/login?error=auth_failed'
+      : 'http://localhost:5173/login?error=auth_failed';
+    res.redirect(redirectURL);
+  }
+};
+
+// GitHub OAuth callback
+exports.githubCallback = (req, res) => {
+  try {
+    // Get token for the authenticated user
+    const token = req.user.getSignedToken();
+    
+    // Use direct URLs based on environment
+    const frontendURL = process.env.NODE_ENV === 'production'
+      ? 'https://colab-ide.vercel.app'  // Direct production client URL
+      : 'http://localhost:5173';  // Direct local client URL
+    
+    // Redirect to frontend with token
+    res.redirect(`${frontendURL}/oauth-callback?token=${token}`);
+  } catch (error) {
+    console.error('GitHub callback error:', error);
+    const redirectURL = process.env.NODE_ENV === 'production'
+      ? 'https://colab-ide.vercel.app/login?error=auth_failed'
+      : 'http://localhost:5173/login?error=auth_failed';
+    res.redirect(redirectURL);
+  }
 };

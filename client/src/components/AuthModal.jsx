@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { login, register, clearError } from '../store/authSlice';
-import { X, Mail, Lock, User, ArrowRight, Loader } from 'lucide-react';
+import { X, Mail, Lock, User, ArrowRight, Loader, Github, Chrome } from 'lucide-react';
 
 function AuthModal({ isOpen, onClose }) {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -20,18 +20,18 @@ function AuthModal({ isOpen, onClose }) {
     if (error) {
       // Map server error messages to form fields
       if (error.includes('Email is already registered')) {
-        setValidationErrors({
-          ...validationErrors,
+        setValidationErrors(prevErrors => ({
+          ...prevErrors,
           email: 'This email is already registered'
-        });
+        }));
       } else if (error.includes('Username is already taken')) {
-        setValidationErrors({
-          ...validationErrors,
+        setValidationErrors(prevErrors => ({
+          ...prevErrors,
           username: 'This username is already taken'
-        });
+        }));
       }
     }
-  }, [error]);
+  }, [error, validationErrors]);
 
   const switchView = () => {
     setIsLoginView(!isLoginView);
@@ -112,6 +112,19 @@ function AuthModal({ isOpen, onClose }) {
     }
   };
 
+  // Handle OAuth login with direct URLs
+  const handleOAuthLogin = (provider) => {
+    // Use direct URLs based on environment
+    const baseURL = import.meta.env.PROD
+      ? 'https://collab-ide-ep5q.onrender.com' // Direct production API URL
+      : 'http://localhost:5000';               // Direct local API URL
+    
+    console.log('OAuth redirect URL:', `${baseURL}/api/auth/${provider}`);
+    
+    // Redirect to the backend's OAuth initiation route
+    window.location.href = `${baseURL}/api/auth/${provider}`;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -140,6 +153,36 @@ function AuthModal({ isOpen, onClose }) {
               {error}
             </div>
           )}
+
+          {/* Social login buttons */}
+          <div className="flex flex-col gap-3 mb-4 mt-4">
+            <button
+              type="button"
+              onClick={() => handleOAuthLogin('google')}
+              className="flex items-center justify-center gap-3 w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors"
+            >
+              <Chrome size={20} /> Continue with Google
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => handleOAuthLogin('github')}
+              className="flex items-center justify-center gap-3 w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors"
+            >
+              <Github size={20} /> Continue with GitHub
+            </button>
+          </div>
+          
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-gray-800 px-2 text-gray-500 dark:text-gray-400">
+                Or continue with email
+              </span>
+            </div>
+          </div>
           
           <form onSubmit={handleSubmit}>
             {!isLoginView && (

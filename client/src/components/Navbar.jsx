@@ -1,7 +1,8 @@
-import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus, HelpCircle, LogIn, UserCircle, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus, HelpCircle, LogIn, ChevronDown } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/authSlice';
+import UserAvatar from './UserAvatar';
 
 function Navbar({ 
   language, 
@@ -117,8 +118,8 @@ function Navbar({
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center space-x-1 px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                <UserCircle className="w-4 h-4 mr-1" />
-                <span className="truncate max-w-[100px]">{user.username || user.email}</span>
+                <UserAvatar user={user} size="sm" className="mr-1" />
+                <span className="truncate max-w-[100px]">{user?.username || user?.email}</span>
                 <ChevronDown className="w-4 h-4 ml-1" />
               </button>
               {userMenuOpen && (
@@ -267,9 +268,9 @@ function Navbar({
               onClick={() => {
                 setMenuOpen(!menuOpen);
               }}
-              className="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+              className="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 overflow-hidden"
             >
-              <UserCircle className="w-5 h-5" />
+              <UserAvatar user={user} size="sm" />
             </button>
           )}
 

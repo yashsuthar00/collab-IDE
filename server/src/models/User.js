@@ -24,9 +24,26 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Please provide a password'],
+    required: function() {
+      // Password is required only if not using social auth
+      return !this.googleId && !this.githubId;
+    },
     minlength: 6,
     select: false
+  },
+  // OAuth related fields
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  githubId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  avatar: {
+    type: String
   },
   createdAt: {
     type: Date,
@@ -41,7 +58,8 @@ const userSchema = new mongoose.Schema({
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
+  // Only hash the password if it has been modified (or is new) and exists
+  if (!this.isModified('password') || !this.password) {
     return next();
   }
   
@@ -61,6 +79,7 @@ userSchema.methods.getSignedToken = function() {
 
 // Match password
 userSchema.methods.matchPassword = async function(enteredPassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
