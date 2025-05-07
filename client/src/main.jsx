@@ -1,9 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
+import { RouterProvider } from 'react-router-dom'
+import { Provider } from 'react-redux'
+import { store } from './store'
+import router from './router'
 import './index.css'
 import 'driver.js/dist/driver.css'
-import './css/animations.css' // Import our custom animations
+import './css/animations.css'
 
 // Silence React Router future flag warnings and socket warnings
 const originalConsoleWarn = console.warn;
@@ -42,12 +45,12 @@ const initializeTheme = () => {
   }
 };
 
-// Handle uncaught promise rejections related to Monaco editor and socket connection errors
+// Handle uncaught promise rejections
 window.addEventListener('unhandledrejection', event => {
   // Check if this is a Monaco editor cancelation - these are expected and can be ignored
   if (event.reason && event.reason.type === 'cancelation' && 
       event.reason.msg === 'operation is manually canceled') {
-    event.preventDefault(); // Prevent the error from appearing in console
+    event.preventDefault(); 
     return;
   }
   
@@ -70,6 +73,8 @@ initializeTheme();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <Provider store={store}>
+      <RouterProvider router={router} />
+    </Provider>
   </React.StrictMode>,
 )

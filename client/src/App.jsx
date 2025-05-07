@@ -655,12 +655,7 @@ function App() {
   return (
     <Provider store={store}>
       <RoomProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<CollaborativeApp />} />
-            <Route path="/oauth-callback" element={<OAuthCallback />} />
-          </Routes>
-        </Router>
+        <CollaborativeApp />
       </RoomProvider>
     </Provider>
   );
