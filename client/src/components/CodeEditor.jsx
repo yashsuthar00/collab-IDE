@@ -7,7 +7,7 @@ import { debounce } from '../utils/helpers';
 import { v4 as uuidv4 } from 'uuid';
 import { 
   monacoChangeToOp, applyOps, transformOps, 
-  positionToOffset, offsetToPosition 
+  offsetToPosition 
 } from '../utils/ot';
 
 // Helper function to generate random colors for user cursors
@@ -38,9 +38,7 @@ const logger = {
 function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = false }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
-  const monaco = useMonaco();
   const cursorsRef = useRef(new Map());
-  const decorationsRef = useRef([]);
   const codeRef = useRef(code);
   const currentVersionRef = useRef(0);
   const pendingOpsRef = useRef([]);
@@ -61,7 +59,6 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
   const { isInRoom, roomId, currentUser } = useRoom();
   
   const [showCharsBar, setShowCharsBar] = useState(window.innerWidth < 1024);
-  const [isEditorFocused, setIsEditorFocused] = useState(false);
   const [remoteUserCursors, setRemoteUserCursors] = useState(new Map());
 
   // Function to get a consistent color for a user
@@ -828,24 +825,23 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     }
 
     // Track focus state
+    // Track focus state and handle buffer sending on blur
     editor.onDidFocusEditorText(() => {
-      setIsEditorFocused(true);
+      // Focus handling if needed in the future
     });
     
     editor.onDidBlurEditorText(() => {
-      setIsEditorFocused(false);
       // When focus is lost, consider typing as stopped and send any pending updates
       isTypingRef.current = false;
       if (bufferRef.current.length > 0) {
         sendBufferedOps();
       }
     });
-
     // Set read-only state
     editor.updateOptions({ readOnly });
 
     logger.info("Editor mounted successfully, OT enabled");
-  }, [theme, onRunCode, handleDocumentChange, emitCursorPosition, emitSelectionChange, sendBufferedOps]);
+  }, [theme, onRunCode, handleDocumentChange, emitCursorPosition, emitSelectionChange, sendBufferedOps, isInRoom, readOnly, currentUser?.id]);
 
   // Handle code change (simplified since most logic moved to handleDocumentChange)
   const handleCodeChange = useCallback((newCode) => {

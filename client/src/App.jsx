@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, Component } from 'react';
+import React, { useState, useEffect, useMemo, Component, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import CodeEditor from './components/CodeEditor';
 import OutputPanel from './components/OutputPanel';
@@ -6,7 +6,7 @@ import UserPanel from './components/UserPanel';
 import RoomJoinModal from './components/RoomJoinModal';
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
-import api, { getSocket, initializeSocket } from './utils/api';
+import api, { getSocket } from './utils/api';
 import { 
   createMainTour, 
   createCollaborationTour, 
@@ -22,7 +22,7 @@ class ErrorBoundary extends Component {
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError() {
     // Update state so the next render will show the fallback UI
     return { hasError: true };
   }
@@ -253,7 +253,7 @@ function CollaborativeApp() {
     }
   };
 
-  const handleRunCode = async () => {
+  const handleRunCode = useCallback(async () => {
     if (loading) return;
     
     if (isInRoom && !checkPermission('RUN_CODE')) {
@@ -297,7 +297,7 @@ function CollaborativeApp() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loading, isInRoom, checkPermission, mobileView, activeTab, sessionId, code, language.id, input, socket, roomId, currentUser]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -309,7 +309,7 @@ function CollaborativeApp() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [code, language.id, input, loading, isInRoom, currentUser?.accessLevel]);
+  }, [code, language.id, input, loading, isInRoom, currentUser?.accessLevel, handleRunCode]);
 
   useEffect(() => {
     let codeToUse;
@@ -329,7 +329,7 @@ function CollaborativeApp() {
     }
     
     setCode(codeToUse);
-  }, []);
+  }, [autoSave, language.id, language.value]);
 
   useEffect(() => {
     if (!isInRoom) {
@@ -343,7 +343,7 @@ function CollaborativeApp() {
       const timeoutId = setTimeout(saveCode, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [code, language?.id, autoSave, isInRoom]);
+  }, [code, language, autoSave, isInRoom]);
 
   // Tour state management - improved approach
   const [currentTour, setCurrentTour] = useState(null);
