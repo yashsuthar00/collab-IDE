@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/authSlice';
 import UserAvatar from './UserAvatar';
+import FriendsMenu from './FriendsMenu'; // Import the FriendsMenu component
 
 function Navbar({ 
   language, 
@@ -102,6 +103,9 @@ function Navbar({
         </div>
 
         <div className="hidden md:flex items-center space-x-3">
+          {/* Friends Menu - Only show when user is authenticated */}
+          {isAuthenticated && <FriendsMenu />}
+
           {/* Auth button in navbar */}
           {!isAuthenticated ? (
             <button
@@ -255,6 +259,9 @@ function Navbar({
         </div>
 
         <div className="md:hidden flex space-x-2">
+          {/* Mobile Friends Menu - only show when authenticated */}
+          {isAuthenticated && <FriendsMenu isMobile={true} />}
+          
           {/* Mobile Auth Button */}
           {!isAuthenticated ? (
             <button

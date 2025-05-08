@@ -45,6 +45,20 @@ const userSchema = new mongoose.Schema({
   avatar: {
     type: String
   },
+  // Add friends array
+  friends: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  status: {
+    type: String,
+    enum: ['online', 'offline', 'away'],
+    default: 'offline'
+  },
+  lastActive: {
+    type: Date,
+    default: Date.now
+  },
   createdAt: {
     type: Date,
     default: Date.now

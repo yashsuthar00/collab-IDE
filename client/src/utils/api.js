@@ -103,6 +103,54 @@ const api = {
     joinSession: (sessionId) => apiClient.get(`/api/sessions/${sessionId}`),
     createSession: (data) => apiClient.post('/api/sessions', data),
   },
+  
+  // Friends API
+  friends: {
+    // Get all friends
+    getFriends: () => apiClient.get('/api/friends'),
+    
+    // Get pending friend requests
+    getPendingRequests: () => apiClient.get('/api/friends/requests/pending'),
+    
+    // Get sent friend requests
+    getSentRequests: () => apiClient.get('/api/friends/requests/sent'),
+    
+    // Search users to add as friends
+    searchUsers: (query) => apiClient.get(`/api/friends/search?query=${query}`),
+    
+    // Send friend request
+    sendFriendRequest: (recipientId) => apiClient.post('/api/friends/requests', { recipientId }),
+    
+    // Accept friend request
+    acceptFriendRequest: (requestId) => apiClient.put(`/api/friends/requests/${requestId}/accept`),
+    
+    // Reject friend request
+    rejectFriendRequest: (requestId) => apiClient.put(`/api/friends/requests/${requestId}/reject`),
+    
+    // Cancel friend request
+    cancelFriendRequest: (requestId) => apiClient.delete(`/api/friends/requests/${requestId}`),
+    
+    // Remove friend
+    removeFriend: (friendId) => apiClient.delete(`/api/friends/${friendId}`)
+  },
+  
+  // Room invitations API
+  invitations: {
+    // Get pending invitations
+    getPendingInvitations: () => apiClient.get('/api/invitations/pending'),
+    
+    // Send invitation to a friend
+    sendInvitation: (data) => apiClient.post('/api/invitations', data),
+    
+    // Accept room invitation
+    acceptInvitation: (invitationId) => apiClient.put(`/api/invitations/${invitationId}/accept`),
+    
+    // Decline room invitation
+    declineInvitation: (invitationId) => apiClient.put(`/api/invitations/${invitationId}/decline`),
+    
+    // Cancel room invitation (by sender)
+    cancelInvitation: (invitationId) => apiClient.delete(`/api/invitations/${invitationId}`)
+  }
 };
 
 // Enhanced Socket.io integration for real-time collaboration

@@ -11,6 +11,11 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />
   },
   {
+    path: '/room/:roomId',
+    element: <App />,
+    errorElement: <ErrorPage />
+  },
+  {
     path: '/oauth-callback',
     element: <OAuthCallback />,
   }

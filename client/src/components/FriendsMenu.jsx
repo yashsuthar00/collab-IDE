@@ -1,0 +1,190 @@
+import { useState, useEffect, useRef } from 'react';
+import { Users, Bell } from 'lucide-react';
+import { useFriends } from '../contexts/FriendsContext';
+import { useSelector } from 'react-redux';
+import NotificationBadge from './NotificationBadge';
+import FriendsPanel from './FriendsPanel';
+import UserAvatar from './UserAvatar';
+import { useRoom } from '../contexts/RoomContext';
+import { getConnectedSocket } from '../utils/api';
+
+const FriendsMenu = ({ isMobile = false }) => {
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const [isFriendsPanelOpen, setIsFriendsPanelOpen] = useState(false);
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
+  const notificationDropdownRef = useRef(null);
+  const notificationButtonRef = useRef(null);
+  
+  const { totalNotifications, pendingRequests, roomInvitations, actions } = useFriends();
+  const { isInRoom, roomId } = useRoom();
+  
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        notificationDropdownRef.current && 
+        !notificationDropdownRef.current.contains(event.target) &&
+        notificationButtonRef.current &&
+        !notificationButtonRef.current.contains(event.target)
+      ) {
+        setShowNotificationDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  
+  // Handle room invitation
+  const handleSendRoomInvitation = async (friendId, friendName) => {
+    if (!isInRoom || !roomId) return;
+  
+    try {
+      // Get current room name (since we don't have it directly, use a placeholder or fetch)
+      const roomName = `Collaboration Room ${roomId.substring(0, 6)}`; 
+      
+      // Send invitation through API
+      const result = await actions.sendRoomInvitation(friendId, roomId, roomName);
+      
+      if (result.success) {
+        // Also emit a socket event for real-time notification if recipient is online
+        const socket = await getConnectedSocket();
+        socket.emit('send-room-invitation', {
+          senderId: user.id, 
+          recipientId: friendId,
+          roomId,
+          roomName
+        });
+        
+        // Show success feedback to user
+        alert(`Invitation sent to ${friendName}`);
+      } else {
+        alert(`Failed to send invitation: ${result.error?.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error sending room invitation:', error);
+      alert('Failed to send invitation. Please try again.');
+    }
+  };
+  
+  if (!isAuthenticated) return null;
+  
+  return (
+    <>
+      <div className="flex items-center space-x-2">
+        {/* Friends button */}
+        <button
+          onClick={() => setIsFriendsPanelOpen(true)}
+          className="p-2 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 relative"
+          title="Friends"
+          aria-label="Friends"
+        >
+          <Users className="w-5 h-5" />
+        </button>
+        
+        {/* Notifications button */}
+        <div className="relative">
+          <button
+            ref={notificationButtonRef}
+            onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
+            className="p-2 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 relative"
+            title="Notifications"
+            aria-label="Notifications"
+          >
+            <Bell className="w-5 h-5" />
+            {totalNotifications > 0 && (
+              <NotificationBadge 
+                count={totalNotifications} 
+                className="absolute -top-1 -right-1" 
+              />
+            )}
+          </button>
+          
+          {/* Notification dropdown */}
+          {showNotificationDropdown && totalNotifications > 0 && (
+            <div 
+              ref={notificationDropdownRef}
+              className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 overflow-hidden border border-gray-200 dark:border-gray-700"
+              style={{ 
+                right: isMobile ? '-120px' : '0', 
+                width: isMobile ? '280px' : '320px' 
+              }}
+            >
+              <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h3 className="font-medium text-gray-900 dark:text-white">Notifications</h3>
+                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">
+                  {totalNotifications}
+                </span>
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto">
+                {/* Friend requests */}
+                {pendingRequests.length > 0 && (
+                  <div>
+                    {pendingRequests.slice(0, 3).map(request => (
+                      <div key={request._id} className="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <div className="flex items-center mb-1">
+                          <UserAvatar user={request.sender} size="sm" />
+                          <p className="ml-2 text-sm font-medium text-gray-900 dark:text-white">
+                            {request.sender.username}
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Sent you a friend request
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Room invitations */}
+                {roomInvitations.length > 0 && (
+                  <div>
+                    {roomInvitations.slice(0, 3).map(invitation => (
+                      <div key={invitation._id} className="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <div className="flex items-center mb-1">
+                          <UserAvatar user={invitation.sender} size="sm" />
+                          <p className="ml-2 text-sm font-medium text-gray-900 dark:text-white">
+                            {invitation.sender.username}
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Invited you to room <span className="font-mono">{invitation.roomName}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* View all link */}
+                <div className="p-2 text-center">
+                  <button 
+                    onClick={() => {
+                      setShowNotificationDropdown(false);
+                      setIsFriendsPanelOpen(true);
+                    }}
+                    className="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    View all notifications
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Friends panel */}
+      <FriendsPanel 
+        isOpen={isFriendsPanelOpen} 
+        onClose={() => setIsFriendsPanelOpen(false)}
+        onInviteToRoom={isInRoom ? handleSendRoomInvitation : undefined}
+        roomId={roomId}
+        isMobile={isMobile}
+      />
+    </>
+  );
+};
+
+export default FriendsMenu;

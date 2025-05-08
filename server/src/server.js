@@ -10,6 +10,7 @@ const passport = require('passport');
 const passportConfig = require('./config/passport');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
+const User = require('./models/User'); // Import User model
 
 // Load environment variables
 dotenv.config();
@@ -102,6 +103,10 @@ const ACCESS_LEVELS = {
 
 // Add auth routes
 app.use('/api/auth', require('./routes/authRoutes'));
+
+// Add friend and invitation routes
+app.use('/api/friends', require('./routes/friendRoutes'));
+app.use('/api/invitations', require('./routes/invitationRoutes'));
 
 // API endpoint for code execution
 app.post('/api/sessions/:sessionId/execute', async (req, res) => {
@@ -233,11 +238,121 @@ app.get('/api/rooms/:roomId', (req, res) => {
   res.json(safeRoomData);
 });
 
+// Handle user status updates and track online users
+const onlineUsers = new Map(); // userId -> socketId
+
 // Socket.io setup for real-time collaboration
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
   const userName = socket.handshake.query.userName || 'Anonymous';
   
+  // Track authenticated users for online status
+  socket.on('authenticate', async ({ userId }) => {
+    if (userId) {
+      // Store the user's online status
+      onlineUsers.set(userId, socket.id);
+      
+      try {
+        // Update user status in database
+        await User.findByIdAndUpdate(userId, {
+          status: 'online',
+          lastActive: new Date()
+        });
+        
+        // Broadcast to friends that user is online
+        const user = await User.findById(userId);
+        if (user && user.friends && user.friends.length > 0) {
+          // For each friend, if they're online, send them a status update
+          user.friends.forEach(friendId => {
+            const friendSocketId = onlineUsers.get(friendId.toString());
+            if (friendSocketId) {
+              io.to(friendSocketId).emit('friend-status-change', {
+                userId,
+                status: 'online'
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error updating user online status:', error);
+      }
+    }
+  });
+  
+  // Handle disconnection
+  socket.on('disconnect', async () => {
+    console.log('User disconnected:', socket.id);
+    
+    // Find if this socket was associated with an authenticated user
+    let disconnectedUserId = null;
+    for (const [userId, socketId] of onlineUsers.entries()) {
+      if (socketId === socket.id) {
+        disconnectedUserId = userId;
+        onlineUsers.delete(userId);
+        break;
+      }
+    }
+    
+    // Update user status if they were authenticated
+    if (disconnectedUserId) {
+      try {
+        // Mark as offline in database
+        await User.findByIdAndUpdate(disconnectedUserId, {
+          status: 'offline',
+          lastActive: new Date()
+        });
+        
+        // Broadcast to friends that user is offline
+        const user = await User.findById(disconnectedUserId);
+        if (user && user.friends && user.friends.length > 0) {
+          // For each friend, if they're online, send them a status update
+          user.friends.forEach(friendId => {
+            const friendSocketId = onlineUsers.get(friendId.toString());
+            if (friendSocketId) {
+              io.to(friendSocketId).emit('friend-status-change', {
+                userId: disconnectedUserId,
+                status: 'offline'
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error updating user offline status:', error);
+      }
+    }
+    
+    // Existing room cleanup code
+    rooms.forEach((room, roomId) => {
+      const userIndex = room.users.findIndex(u => u.id === socket.id);
+      
+      if (userIndex !== -1) {
+        // If user is owner, keep them in the room but mark as inactive
+        // Otherwise remove them after a timeout (could be reconnecting)
+        if (room.users[userIndex].accessLevel === ACCESS_LEVELS.OWNER) {
+          room.users[userIndex].isActive = false;
+          io.to(roomId).emit('users-updated', room.users);
+        } else {
+          // Set a timeout to remove the user if they don't reconnect
+          setTimeout(() => {
+            // Check if room still exists
+            if (rooms.has(roomId)) {
+              const currentRoom = rooms.get(roomId);
+              // Check if user is still in the room and inactive
+              const user = currentRoom.users.find(u => u.id === socket.id);
+              if (user && !user.isActive) {
+                // Remove user
+                currentRoom.users = currentRoom.users.filter(u => u.id !== socket.id);
+                // Notify remaining users
+                io.to(roomId).emit('users-updated', currentRoom.users);
+                console.log(`User ${socket.id} removed from room ${roomId} after disconnect timeout`);
+              }
+            }
+          }, 60000); // 1 minute timeout
+        }
+      }
+    });
+  });
+
   // Create a new room
   socket.on('create-room', ({ userName, roomName }) => {
     try {
@@ -768,6 +883,63 @@ io.on('connection', (socket) => {
     
     // Broadcast message to all users in room
     io.to(roomId).emit('chat-message', message);
+  });
+  
+  // Handle room invitations
+  socket.on('send-room-invitation', async ({ senderId, recipientId, roomId, roomName }) => {
+    try {
+      // Get recipient socket ID from online users map
+      const recipientSocketId = onlineUsers.get(recipientId);
+      
+      if (recipientSocketId) {
+        // If recipient is online, send them a real-time notification
+        io.to(recipientSocketId).emit('room-invitation', {
+          senderId,
+          roomId,
+          roomName
+        });
+      }
+      
+      // The invitation is also stored in the database via the API endpoint
+    } catch (error) {
+      console.error('Error sending room invitation via socket:', error);
+    }
+  });
+  
+  // Handle friend requests
+  socket.on('send-friend-request', async ({ senderId, recipientId }) => {
+    try {
+      // Get recipient socket ID from online users map
+      const recipientSocketId = onlineUsers.get(recipientId);
+      
+      if (recipientSocketId) {
+        // If recipient is online, send them a real-time notification
+        io.to(recipientSocketId).emit('friend-request-received', {
+          senderId
+        });
+      }
+      
+      // The request is also stored in the database via the API endpoint
+    } catch (error) {
+      console.error('Error sending friend request via socket:', error);
+    }
+  });
+  
+  // Handle friend request accepted
+  socket.on('accept-friend-request', async ({ userId, friendId }) => {
+    try {
+      // Get friend's socket ID from online users map
+      const friendSocketId = onlineUsers.get(friendId);
+      
+      if (friendSocketId) {
+        // If friend is online, notify them that their request was accepted
+        io.to(friendSocketId).emit('friend-request-accepted', {
+          userId
+        });
+      }
+    } catch (error) {
+      console.error('Error notifying friend request accepted via socket:', error);
+    }
   });
   
   // Handle disconnection

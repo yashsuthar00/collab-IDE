@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useMemo, Component, useCallback } from 'react';
-import { Provider } from 'react-redux'; // Add this import
-import { store } from './store'; // Add this import
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Add this import
+import { Provider } from 'react-redux'; 
+import { store } from './store';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; 
 import Navbar from './components/Navbar';
 import CodeEditor from './components/CodeEditor';
 import OutputPanel from './components/OutputPanel';
 import UserPanel from './components/UserPanel';
 import RoomJoinModal from './components/RoomJoinModal';
-import AuthModal from './components/AuthModal'; // Add this import
-import OAuthCallback from './components/OAuthCallback'; // Add this import
+import AuthModal from './components/AuthModal';
+import OAuthCallback from './components/OAuthCallback';
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
+import { FriendsProvider } from './contexts/FriendsContext'; // Import FriendsProvider
 import api, { getConnectedSocket } from './utils/api';
 import { 
   createMainTour, 
@@ -654,9 +655,11 @@ function CollaborativeApp() {
 function App() {
   return (
     <Provider store={store}>
-      <RoomProvider>
-        <CollaborativeApp />
-      </RoomProvider>
+      <FriendsProvider> {/* Add FriendsProvider here */}
+        <RoomProvider>
+          <CollaborativeApp />
+        </RoomProvider>
+      </FriendsProvider>
     </Provider>
   );
 }
