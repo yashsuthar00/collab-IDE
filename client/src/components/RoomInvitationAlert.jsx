@@ -2,10 +2,13 @@ import React from 'react';
 import { Check, X, Users } from 'lucide-react';
 import { useFriends } from '../contexts/FriendsContext';
 import { useNavigate } from 'react-router-dom';
+import { useRoom } from '../contexts/RoomContext';
 import UserAvatar from './UserAvatar';
+import { getFromStorage } from '../utils/storage';
 
 const RoomInvitationAlert = ({ invitation }) => {
   const { actions } = useFriends();
+  const { joinRoom } = useRoom();
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = React.useState(false);
   
@@ -16,7 +19,17 @@ const RoomInvitationAlert = ({ invitation }) => {
       console.log('Accept invitation result:', result);
       
       if (result.success && result.roomId) {
-        // Navigate to the room after accepting invitation
+        // Get username from storage
+        const userName = getFromStorage('user_name') || invitation.recipient.username;
+        
+        // First update the API status
+        console.log(`Accepted invitation to room ${result.roomId}, joining...`);
+        
+        // Join the room directly with the context method
+        // This ensures proper socket connection
+        joinRoom(result.roomId, userName, true);
+        
+        // After joining, navigate to the room page
         navigate(`/room/${result.roomId}`);
       } else {
         alert('Couldn\'t join the room. The invitation might be expired.');

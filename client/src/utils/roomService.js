@@ -60,9 +60,9 @@ export const createRoom = async (userName, initialLanguage = 'javascript', initi
 };
 
 // Join an existing room
-export const joinRoom = async (roomId, userName) => {
+export const joinRoom = async (roomId, userName, fromInvitation = false) => {
   try {
-    console.log(`Attempting to join room ${roomId} as ${userName}`);
+    console.log(`Attempting to join room ${roomId} as ${userName}${fromInvitation ? ' from invitation' : ''}`);
     
     // Initialize socket connection
     const socket = initializeSocket();
@@ -80,12 +80,12 @@ export const joinRoom = async (roomId, userName) => {
     saveToStorage('user_name', userName);
     saveToStorage('current_room', roomId);
     
-    // Default to viewer access when joining
-    const accessLevel = ACCESS_LEVELS.VIEWER;
+    // If joining from invitation, we might want to use a different default access level
+    const accessLevel = fromInvitation ? ACCESS_LEVELS.EDITOR : ACCESS_LEVELS.VIEWER;
     
     // Join room socket
-    socket.emit('join-room', { roomId, userName, accessLevel });
-    console.log(`Socket emit join-room: ${roomId}, ${userName}, ${accessLevel}`);
+    socket.emit('join-room', { roomId, userName, accessLevel, fromInvitation });
+    console.log(`Socket emit join-room: ${roomId}, ${userName}, ${accessLevel}, fromInvitation: ${fromInvitation}`);
     
     return { 
       success: true, 
@@ -155,4 +155,70 @@ export const canPerformAction = (accessLevel, action) => {
 export const getRoomShareLink = (roomId) => {
   const baseUrl = window.location.origin;
   return `${baseUrl}/room/${roomId}`;
+};
+
+// Send a room invitation to a friend (updated to handle pending requests)
+export const inviteToRoom = async (roomId, roomName, inviterId, inviterName, inviteeId, inviteeName, isPendingFriend = false) => {
+  try {
+    // Create the invitation through API
+    const response = await api.friends.sendRoomInvitation({
+      roomId,
+      roomName,
+      senderId: inviterId,
+      senderName: inviterName,
+      recipientId: inviteeId,
+      recipientName: inviteeName,
+      isPendingFriend
+    });
+    
+    if (response.data && response.data.success) {
+      return { 
+        success: true, 
+        invitationId: response.data.invitationId,
+        message: isPendingFriend 
+          ? 'Invitation sent to pending friend' 
+          : 'Invitation sent successfully'
+      };
+    } else {
+      return { 
+        success: false, 
+        error: response.data?.message || 'Failed to send invitation' 
+      };
+    }
+  } catch (error) {
+    console.error('Error sending room invitation:', error);
+    return { 
+      success: false, 
+      error: error.message || 'Failed to send invitation' 
+    };
+  }
+};
+
+// New helper function to find friends including pending requests
+export const findAllFriends = async (userId) => {
+  try {
+    // Get both confirmed and pending friends
+    const confirmedResponse = await api.friends.getFriends(userId);
+    const pendingResponse = await api.friends.getPendingFriends(userId);
+    
+    const confirmedFriends = confirmedResponse.data?.friends || [];
+    const pendingFriends = pendingResponse.data?.pendingRequests || [];
+    
+    // Combine both lists, marking pending status
+    const allFriends = [
+      ...confirmedFriends.map(friend => ({ ...friend, isPending: false })),
+      ...pendingFriends.map(friend => ({ ...friend, isPending: true }))
+    ];
+    
+    return {
+      success: true,
+      friends: allFriends
+    };
+  } catch (error) {
+    console.error('Error fetching all friends:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to fetch friends'
+    };
+  }
 };

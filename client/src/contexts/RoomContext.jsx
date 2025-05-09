@@ -322,16 +322,35 @@ export const RoomProvider = ({ children }) => {
   }, [socket]);
   
   // Room context actions
-  const joinRoom = (roomId, userName) => {
+  const joinRoom = (roomId, userName, fromInvitation = false) => {
     if (!socket) {
       console.error("Cannot join room: Socket not initialized");
       return;
     }
     
-    console.log(`Joining room ${roomId} as ${userName}`);
+    console.log(`Joining room ${roomId} as ${userName}${fromInvitation ? ' from invitation' : ''}`);
     dispatch({ type: ACTION_TYPES.JOIN_ROOM_START });
     saveToStorage('user_name', userName);
-    socket.emit('join-room', { roomId, userName });
+    
+    // If we're coming from an invitation, set window flag to help debug
+    if (fromInvitation) {
+      window._joinFromInvitation = true;
+    }
+    
+    socket.emit('join-room', { roomId, userName, fromInvitation });
+    
+    // Set a timeout to detect failures
+    const joinTimeout = setTimeout(() => {
+      if (!state.isInRoom) {
+        dispatch({
+          type: ACTION_TYPES.JOIN_ROOM_ERROR,
+          payload: 'Failed to join room. Timeout exceeded.'
+        });
+      }
+    }, 5000);
+    
+    // Clear the timeout if the component unmounts
+    return () => clearTimeout(joinTimeout);
   };
   
   const createRoom = (userName, roomName = '') => {
@@ -390,6 +409,27 @@ export const RoomProvider = ({ children }) => {
   const checkPermission = (action) => {
     return canPerformAction(state.currentUser.accessLevel, action);
   };
+
+  // Updated method to invite a user to the room that handles pending requests
+  const inviteUserToRoom = (userId, username, isPending = false) => {
+    if (!socket || !state.isInRoom) return;
+    
+    console.log(`Inviting user ${username} (${userId}) to room ${state.roomId}, pending status: ${isPending}`);
+    socket.emit('invite-to-room', {
+      roomId: state.roomId,
+      roomName: state.roomName,
+      inviterId: state.currentUser.id,
+      inviterName: state.currentUser.name,
+      inviteeId: userId,
+      inviteeName: username,
+      isPendingFriend: isPending
+    });
+    
+    return {
+      success: true,
+      message: `Invitation sent to ${username}`
+    };
+  };
   
   const contextValue = {
     ...state,
@@ -400,6 +440,7 @@ export const RoomProvider = ({ children }) => {
     removeUser,
     sendChatMessage,
     checkPermission,
+    inviteUserToRoom,  // Add the new method to the context value
   };
   
   return (
