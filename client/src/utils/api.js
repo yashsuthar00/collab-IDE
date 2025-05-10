@@ -130,6 +130,36 @@ const api = {
     // Cancel friend request
     cancelFriendRequest: (requestId) => apiClient.delete(`/api/friends/requests/${requestId}`),
     
+    // Enhanced removeFriend method with better error handling
+    removeFriend: async (friendId) => {
+      try {
+        console.log(`API: Removing friend with ID: ${friendId}`);
+        
+        if (!friendId) {
+          console.error('Invalid friendId provided');
+          return { 
+            data: { 
+              success: false, 
+              message: 'Invalid friend ID' 
+            } 
+          };
+        }
+        
+        const response = await apiClient.delete(`/api/friends/${friendId}`);
+        console.log('Friend removal response:', response.data);
+        
+        return response;
+      } catch (error) {
+        console.error('API Error removing friend:', error);
+        return { 
+          data: { 
+            success: false, 
+            message: error.message || 'Failed to remove friend' 
+          } 
+        };
+      }
+    },
+    
     // Remove friend
     removeFriend: (friendId) => apiClient.delete(`/api/friends/${friendId}`)
   },

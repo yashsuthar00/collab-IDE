@@ -216,21 +216,41 @@ exports.cancelFriendRequest = async (req, res) => {
   }
 };
 
-// Remove friend
+// Remove friend - completely rewritten to ensure thorough cleanup
 exports.removeFriend = async (req, res) => {
   try {
     const { friendId } = req.params;
+    const userId = req.user.id;
     
-    // Remove from each other's friend list
-    await User.findByIdAndUpdate(
-      req.user.id,
-      { $pull: { friends: friendId } }
-    );
+    console.log(`Removing friendship between ${userId} and ${friendId}`);
     
-    await User.findByIdAndUpdate(
-      friendId,
-      { $pull: { friends: req.user.id } }
-    );
+    // 1. Remove from both users' friend arrays
+    const updatePromises = [
+      // Remove friend from current user's friends list
+      User.findByIdAndUpdate(
+        userId,
+        { $pull: { friends: friendId } }
+      ),
+      
+      // Remove current user from friend's friends list
+      User.findByIdAndUpdate(
+        friendId,
+        { $pull: { friends: userId } }
+      )
+    ];
+    
+    // Execute both updates in parallel
+    await Promise.all(updatePromises);
+    
+    // 2. Delete any existing friend requests between these users (in any direction)
+    await FriendRequest.deleteMany({
+      $or: [
+        { sender: userId, recipient: friendId },
+        { sender: friendId, recipient: userId }
+      ]
+    });
+    
+    console.log(`Successfully removed friendship between ${userId} and ${friendId}`);
     
     res.status(200).json({
       success: true,
@@ -240,7 +260,8 @@ exports.removeFriend = async (req, res) => {
     console.error('Error removing friend:', error);
     res.status(500).json({
       success: false,
-      message: 'Error removing friend'
+      message: 'Error removing friend',
+      error: error.message
     });
   }
 };
@@ -287,7 +308,7 @@ exports.getSentRequests = async (req, res) => {
   }
 };
 
-// Search users for adding friends
+// Search users for adding friends - fixed friend check logic
 exports.searchUsers = async (req, res) => {
   try {
     const { query } = req.query;
@@ -299,13 +320,14 @@ exports.searchUsers = async (req, res) => {
       });
     }
 
-    // Find users matching the query, excluding current user and existing friends
+    // Find users matching the query, excluding current user
     const currentUser = await User.findById(req.user.id);
     
+    // We need to ensure we exclude current friends properly
     const users = await User.find({
       $and: [
         { _id: { $ne: req.user.id } }, // Not self
-        { _id: { $nin: currentUser.friends } }, // Not already friends
+        { _id: { $nin: currentUser.friends || [] } }, // Not in friends array
         { 
           $or: [
             { username: { $regex: query, $options: 'i' } },

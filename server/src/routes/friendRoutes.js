@@ -18,6 +18,8 @@ router.use(protect);
 
 // Friend management routes
 router.get('/', getFriends);
+
+// Updated to ensure we really delete the friendship
 router.delete('/:friendId', removeFriend);
 
 // Friend request routes

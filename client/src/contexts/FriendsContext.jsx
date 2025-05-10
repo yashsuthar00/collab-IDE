@@ -257,21 +257,39 @@ export const FriendsProvider = ({ children }) => {
     }
   }, [isAuthenticated, fetchSentRequests]);
   
-  // Remove friend
+  // Remove friend - Improved with better error handling and data consistency
   const removeFriend = useCallback(async (friendId) => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) return { success: false, error: 'Not authenticated' };
     
     try {
-      await api.friends.removeFriend(friendId);
-      // Update friends list
-      setFriends(prev => prev.filter(friend => friend._id !== friendId));
-      return { success: true };
+      setLoading(prev => ({ ...prev, friends: true }));
+      
+      // Make the API call with additional logging
+      console.log(`Removing friend with ID: ${friendId}`);
+      const response = await api.friends.removeFriend(friendId);
+      
+      if (response.data && response.data.success) {
+        console.log('Friend removal successful, updating local state');
+        
+        // Update local state to remove the friend
+        setFriends(prev => prev.filter(f => f._id !== friendId));
+        
+        // Also refresh other friend-related data to ensure consistency
+        fetchPendingRequests();
+        fetchSentRequests();
+        
+        return { success: true };
+      } else {
+        throw new Error(response.data?.message || "Failed to remove friend");
+      }
     } catch (error) {
       console.error('Error removing friend:', error);
-      setError('Failed to remove friend');
-      return { success: false, error };
+      setError(`Failed to remove friend: ${error.message}`);
+      return { success: false, error: error.message || "An unknown error occurred" };
+    } finally {
+      setLoading(prev => ({ ...prev, friends: false }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchPendingRequests, fetchSentRequests]);
   
   // Send room invitation - improved with error handling
   const sendRoomInvitation = useCallback(async (recipientId, roomId, roomName) => {
