@@ -115,8 +115,21 @@ const api = {
     // Get sent friend requests
     getSentRequests: () => apiClient.get('/api/friends/requests/sent'),
     
-    // Search users to add as friends
-    searchUsers: (query) => apiClient.get(`/api/friends/search?query=${query}`),
+    // Search users to add as friends with better error handling
+    searchUsers: async (query) => {
+      try {
+        if (!query || query.length < 3) {
+          return { data: { users: [] } };
+        }
+        
+        const response = await apiClient.get(`/api/friends/search?query=${encodeURIComponent(query)}`);
+        return response;
+      } catch (error) {
+        console.error('Error searching users:', error);
+        // Return a valid response structure even on error
+        return { data: { users: [], error: error.message || 'Search failed' } };
+      }
+    },
     
     // Send friend request
     sendFriendRequest: (recipientId) => apiClient.post('/api/friends/requests', { recipientId }),
@@ -130,8 +143,19 @@ const api = {
     // Cancel friend request
     cancelFriendRequest: (requestId) => apiClient.delete(`/api/friends/requests/${requestId}`),
     
-    // Remove friend
-    removeFriend: (friendId) => apiClient.delete(`/api/friends/${friendId}`)
+    // Enhanced remove friend method
+    removeFriend: async (data) => {
+      try {
+        console.log("Requesting friend removal:", data);
+        const response = await axios.delete(`${getBaseUrl()}/api/friends/remove`, { 
+          data: data // Using data property for DELETE request body
+        });
+        return response;
+      } catch (error) {
+        console.error("Error in API call to remove friend:", error);
+        throw error;
+      }
+    }
   },
   
   // Room invitations API

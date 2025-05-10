@@ -165,7 +165,7 @@ export const FriendsProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
   
-  // Search users to add as friends
+  // Search users to add as friends - Fixed to handle pending requests properly
   const searchUsers = useCallback(async (query) => {
     if (!isAuthenticated || !query || query.length < 3) {
       setSearchResults([]);
@@ -174,15 +174,39 @@ export const FriendsProvider = ({ children }) => {
     
     try {
       setLoading(prev => ({ ...prev, search: true }));
+      setError(null); // Clear any previous errors
+      
       const response = await api.friends.searchUsers(query);
-      setSearchResults(response.data.users);
+      
+      // Get current pending requests and sent requests IDs for comparison
+      const pendingIds = pendingRequests.map(req => req.sender._id || req.sender);
+      const sentIds = sentRequests.map(req => req.recipient._id || req.recipient);
+      
+      // Update search results with friendship status
+      const updatedResults = response.data.users.map(user => {
+        // Check if this user has sent us a request
+        const hasSentRequest = pendingIds.includes(user._id);
+        // Check if we sent a request to this user
+        const hasReceivedRequest = sentIds.includes(user._id);
+        
+        return {
+          ...user,
+          friendStatus: hasSentRequest ? 'request_received' : 
+                        hasReceivedRequest ? 'request_sent' : 
+                        'not_friend'
+        };
+      });
+      
+      setSearchResults(updatedResults);
     } catch (error) {
       console.error('Error searching users:', error);
       setError('Failed to search users');
+      // Even on error, ensure we clear the loading state and return empty results
+      setSearchResults([]);
     } finally {
       setLoading(prev => ({ ...prev, search: false }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, pendingRequests, sentRequests]);
   
   // Send friend request
   const sendFriendRequest = useCallback(async (recipientId) => {
@@ -259,19 +283,30 @@ export const FriendsProvider = ({ children }) => {
   
   // Remove friend
   const removeFriend = useCallback(async (friendId) => {
-    if (!isAuthenticated) return;
-    
     try {
-      await api.friends.removeFriend(friendId);
-      // Update friends list
-      setFriends(prev => prev.filter(friend => friend._id !== friendId));
-      return { success: true };
+      setLoading(true);
+      
+      // Enhanced friend removal - we need to ensure complete removal from database
+      const response = await api.friends.removeFriend({
+        userId: user._id,
+        friendId: friendId,
+        fullRemoval: true // Add this flag to signal complete removal from DB
+      });
+      
+      if (response.data && response.data.success) {
+        // Update local state
+        setFriends(prev => prev.filter(f => f._id !== friendId));
+        return { success: true };
+      } else {
+        throw new Error(response.data?.message || "Failed to remove friend");
+      }
     } catch (error) {
-      console.error('Error removing friend:', error);
-      setError('Failed to remove friend');
-      return { success: false, error };
+      console.error("Error removing friend:", error);
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [user._id]);
   
   // Send room invitation - improved with error handling
   const sendRoomInvitation = useCallback(async (recipientId, roomId, roomName) => {
