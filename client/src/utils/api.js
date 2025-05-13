@@ -47,10 +47,18 @@ apiClient.interceptors.response.use(
   (error) => {
     // Handle common error scenarios
     const errorResponse = {
-      message: error.response?.data?.message || 'An error occurred while processing your request.',
+      message: error.response?.data?.msg || error.response?.data?.message || 'An error occurred while processing your request.',
       status: error.response?.status || 500,
       details: error.response?.data || {},
     };
+    
+    // Special handling for 401 errors on file access
+    if (error.response?.status === 401 && 
+        (error.config?.url?.includes('/api/codefiles/') || 
+         error.config?.url?.includes('/api/directories/'))) {
+      console.warn('Access denied to resource:', error.config.url, error.response.data);
+      errorResponse.isAccessError = true;
+    }
     
     console.error('API Error:', errorResponse);
     return Promise.reject(errorResponse);
@@ -180,6 +188,82 @@ const api = {
     
     // Cancel room invitation (by sender)
     cancelInvitation: (invitationId) => apiClient.delete(`/api/invitations/${invitationId}`)
+  },
+  
+  // Add code files API methods
+  files: {
+    // Get all files
+    getFiles: (params) => apiClient.get('/api/codefiles', { params }),
+    
+    // Get a file by ID
+    getFile: (fileId) => apiClient.get(`/api/codefiles/${fileId}`),
+    
+    // Create a new file
+    createFile: (fileData) => apiClient.post('/api/codefiles', fileData),
+    
+    // Update a file
+    updateFile: (fileId, fileData) => apiClient.put(`/api/codefiles/${fileId}`, fileData),
+    
+    // Delete a file
+    deleteFile: (fileId) => apiClient.delete(`/api/codefiles/${fileId}`),
+    
+    // Save current code
+    saveCurrentCode: (fileData) => apiClient.post('/api/codefiles/save-current', fileData),
+    
+    // Duplicate a file
+    duplicateFile: (data) => apiClient.post('/api/codefiles/duplicate', data),
+    
+    // Get recent files
+    getRecentFiles: (limit = 5) => apiClient.get(`/api/codefiles/recent?limit=${limit}`),
+    
+    // Get filter options for file search
+    getFilterOptions: () => apiClient.get('/api/codefiles/filter-options'),
+    
+    // Fix the renaming functionality to use the updateFile endpoint
+    renameFile: (fileId, newName) => {
+      return apiClient.put(`/api/codefiles/${fileId}`, { name: newName });
+    },
+    
+    // Fix the file moving functionality to use the updateFile endpoint
+    moveFile: (fileId, newDirectoryId) => {
+      return apiClient.put(`/api/codefiles/${fileId}`, { 
+        directoryId: newDirectoryId 
+      });
+    }
+  },
+  
+  // Add directories API methods
+  directories: {
+    // Get directories (with optional parent filter)
+    getDirectories: (params) => apiClient.get('/api/directories', { params }),
+    
+    // Get directory tree
+    getDirectoryTree: () => apiClient.get('/api/directories/tree'),
+    
+    // Get a directory by ID
+    getDirectory: (dirId) => apiClient.get(`/api/directories/${dirId}`),
+    
+    // Create a new directory
+    createDirectory: (dirData) => apiClient.post('/api/directories', dirData),
+    
+    // Update a directory
+    updateDirectory: (dirId, dirData) => apiClient.put(`/api/directories/${dirId}`, dirData),
+    
+    // Delete a directory
+    deleteDirectory: (dirId, deleteContents = false) => 
+      apiClient.delete(`/api/directories/${dirId}${deleteContents ? '?deleteContents=true' : ''}`),
+    
+    // Fix directory renaming functionality to use the updateDirectory endpoint
+    renameDirectory: (dirId, newName) => {
+      return apiClient.put(`/api/directories/${dirId}`, { name: newName });
+    },
+    
+    // Fix directory moving functionality to use the updateDirectory endpoint
+    moveDirectory: (dirId, newParentId) => {
+      return apiClient.put(`/api/directories/${dirId}`, { 
+        parentId: newParentId 
+      });
+    }
   }
 };
 

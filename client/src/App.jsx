@@ -2,13 +2,16 @@ import React, { useState, useEffect, useMemo, Component, useCallback } from 'rea
 import { Provider } from 'react-redux'; 
 import { store } from './store';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; 
+import { toast } from 'react-hot-toast'; // Add this import
 import Navbar from './components/Navbar';
 import CodeEditor from './components/CodeEditor';
 import OutputPanel from './components/OutputPanel';
-import UserPanel from './components/UserPanel';
 import RoomJoinModal from './components/RoomJoinModal';
 import AuthModal from './components/AuthModal';
 import OAuthCallback from './components/OAuthCallback';
+import FilesPanel from './components/FilesPanel';
+import RecentFiles from './components/RecentFiles';
+import FileDialog from './components/FileDialog'; // Add this import
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
 import { FriendsProvider } from './contexts/FriendsContext'; // Import FriendsProvider
@@ -97,6 +100,11 @@ function CollaborativeApp() {
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false); // Add this state
   const [socket, setSocket] = useState(null);
+
+  const [isFilesPanelOpen, setIsFilesPanelOpen] = useState(false);
+  const [isRecentFilesOpen, setIsRecentFilesOpen] = useState(false);
+  const [currentFile, setCurrentFile] = useState(null);
+  const [isFileDialogOpen, setIsFileDialogOpen] = useState(false); // Add this state
 
   const toggleMobileView = () => {
     setMobileView(prev => prev === 'code' ? 'output' : 'code');
@@ -529,6 +537,93 @@ function CollaborativeApp() {
     setIsRoomModalOpen(false);
   };
 
+  const handleFileSelect = (file) => {
+    try {
+      if (!file || !file.code) {
+        toast.error('The selected file appears to be invalid');
+        return;
+      }
+      
+      setCode(file.code);
+      const selectedLanguage = languageOptions.find(lang => lang.id === file.language);
+      if (selectedLanguage) {
+        setLanguage(selectedLanguage);
+      } else {
+        console.warn(`Language ${file.language} not found in options, using current language`);
+      }
+      
+      setCurrentFile(file);
+      // If on mobile, switch to code view
+      if (window.innerWidth < 768) {
+        setMobileView('code');
+      }
+    } catch (error) {
+      console.error('Error handling file selection:', error);
+      toast.error('Failed to load selected file');
+    }
+  };
+
+  const handleSaveFile = () => {
+    if (currentFile) {
+      // If we have a current file, update it
+      handleUpdateFile();
+    } else {
+      // Open file dialog directly instead of files panel
+      setIsFileDialogOpen(true);
+    }
+  };
+
+  const handleUpdateFile = async () => {
+    if (!currentFile) return;
+    
+    try {
+      const response = await api.files.updateFile(currentFile._id, {
+        code,
+        language: language.id
+      });
+      
+      // Check response before assuming success
+      if (response && response.data) {
+        setCurrentFile(response.data);
+        toast.success('File updated successfully');
+      } else {
+        throw new Error('Failed to update file - unexpected response');
+      }
+    } catch (error) {
+      console.error('Error updating file:', error);
+      toast.error(error.message || 'Failed to update file');
+    }
+  };
+
+  const handleSaveFileFromDialog = async (fileData) => {
+    try {
+      const response = await api.files.saveCurrentCode({
+        name: fileData.name,
+        code,
+        language: language.id,
+        directoryId: fileData.directoryId,
+        isPublic: fileData.isPublic
+      });
+      
+      if (response && response.data && response.data.success) {
+        setCurrentFile(response.data.file);
+        toast.success('File saved successfully');
+      } else {
+        throw new Error('Failed to save file - unexpected response');
+      }
+      
+      setIsFileDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving file:', error);
+      toast.error(error.message || 'Failed to save file');
+    }
+  };
+
+  const handleSaveSuccess = (savedFile) => {
+    setCurrentFile(savedFile);
+    toast.success('Code saved successfully');
+  };
+
   const editorKey = useMemo(() => 
     isInRoom ? `editor-room-${roomId}` : `editor-local-${language.id}`, 
     [isInRoom, roomId, language.id]
@@ -555,6 +650,10 @@ function CollaborativeApp() {
         onJoinRoom={handleOpenRoomModal}
         onStartTour={handleStartTour}
         onOpenAuthModal={() => setIsAuthModalOpen(true)} // Add this prop
+        currentFile={currentFile}
+        onSaveFile={handleSaveFile}
+        onOpenFilesPanel={() => setIsFilesPanelOpen(true)}
+        onOpenRecentFiles={() => setIsRecentFilesOpen(true)}
       />
       
       <div className="md:hidden flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -634,6 +733,36 @@ function CollaborativeApp() {
       <AuthModal 
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      <FilesPanel
+        isOpen={isFilesPanelOpen}
+        onClose={() => setIsFilesPanelOpen(false)}
+        onFileSelect={handleFileSelect}
+        currentCode={code}
+        currentLanguage={language.id}
+        onSaveSuccess={handleSaveSuccess}
+      />
+      
+      {isRecentFilesOpen && (
+        <RecentFiles 
+          onFileSelect={handleFileSelect}
+          onClose={() => setIsRecentFilesOpen(false)}
+        />
+      )}
+
+      <FileDialog
+        isOpen={isFileDialogOpen}
+        onClose={() => setIsFileDialogOpen(false)}
+        onSave={handleSaveFileFromDialog}
+        initialValues={{ 
+          language: language.id, // Still pass the language in initialValues
+          name: `${language.name.toLowerCase()}_code`
+        }}
+        title="Save Code As"
+        submitLabel="Save"
+        mode="create"
+        currentDirectory={null}
       />
 
       {/* Help button with fixed position and onClick handler */}

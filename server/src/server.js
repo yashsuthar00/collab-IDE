@@ -11,6 +11,11 @@ const passportConfig = require('./config/passport');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const User = require('./models/User'); // Import User model
+const codeFileRoutes = require('./routes/codeFiles');
+const directoryRoutes = require('./routes/directories');
+const logger = require('./utils/logger');
+const errorHandler = require('./middleware/errorHandler');
+const jwt = require('jsonwebtoken');
 
 // Load environment variables
 dotenv.config();
@@ -107,6 +112,49 @@ app.use('/api/auth', require('./routes/authRoutes'));
 // Add friend and invitation routes
 app.use('/api/friends', require('./routes/friendRoutes'));
 app.use('/api/invitations', require('./routes/invitationRoutes'));
+
+// Add code file and directory routes
+app.use('/api/codefiles', codeFileRoutes);
+app.use('/api/directories', directoryRoutes);
+
+// Add error handling middleware after all routes
+app.use(errorHandler);
+
+// Simple request logger for debugging
+app.use((req, res, next) => {
+  logger.debug(`${req.method} ${req.path}`, {
+    authenticated: !!req.user,
+    userId: req.user?.id,
+    headers: {
+      authorization: req.headers.authorization ? '[PRESENT]' : '[NOT PRESENT]'
+    }
+  });
+  next();
+});
+
+// Debug endpoint for auth status
+app.get('/api/debug/auth-status', (req, res) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  try {
+    const decoded = token 
+      ? jwt.verify(token, process.env.JWT_SECRET || 'collab-ide-secret')
+      : null;
+      
+    res.json({
+      hasToken: !!token,
+      tokenValid: !!decoded,
+      userId: decoded?.id || decoded?.user?.id,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.json({
+      hasToken: !!token,
+      tokenValid: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // API endpoint for code execution
 app.post('/api/sessions/:sessionId/execute', async (req, res) => {

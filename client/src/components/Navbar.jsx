@@ -1,9 +1,10 @@
-import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus, HelpCircle, LogIn, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus, HelpCircle, LogIn, ChevronDown, FolderOpen, FileText } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/authSlice';
 import UserAvatar from './UserAvatar';
 import FriendsMenu from './FriendsMenu'; // Import the FriendsMenu component
+import SaveFileButton from './SaveFileButton';
 
 function Navbar({ 
   language, 
@@ -23,7 +24,11 @@ function Navbar({
   onLeaveRoom,
   onJoinRoom,
   onStartTour,
-  onOpenAuthModal
+  onOpenAuthModal,
+  currentFile,
+  onSaveFile,
+  onOpenFilesPanel,
+  onOpenRecentFiles
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -208,6 +213,32 @@ function Navbar({
             <Save className={`w-4 h-4 mr-1 ${autoSave ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
             {autoSave ? 'Auto-save On' : 'Auto-save Off'}
           </button>
+
+          {isAuthenticated && (
+            <>
+              <SaveFileButton 
+                onClick={onSaveFile} 
+                currentFile={currentFile} 
+                disabled={isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel)}
+              />
+              
+              <button
+                onClick={onOpenFilesPanel}
+                className="flex items-center px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <FolderOpen className="w-4 h-4 mr-1.5" />
+                Files
+              </button>
+              
+              <button
+                onClick={onOpenRecentFiles}
+                className="flex items-center px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <FileText className="w-4 h-4 mr-1.5" />
+                Recent
+              </button>
+            </>
+          )}
           
           <button
             id="theme-toggle"
@@ -279,6 +310,15 @@ function Navbar({
             >
               <UserAvatar user={user} size="sm" />
             </button>
+          )}
+
+          {isAuthenticated && (
+            <SaveFileButton 
+              onClick={onSaveFile} 
+              currentFile={currentFile}
+              isMobile={true}
+              disabled={isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel)}
+            />
           )}
 
           <button
@@ -404,6 +444,26 @@ function Navbar({
             <span className="text-sm">{autoSave ? 'Auto-save On' : 'Auto-save Off'}</span>
           </button>
         </div>
+
+        {isAuthenticated && (
+          <div className="flex px-2 space-x-2">
+            <button
+              onClick={onOpenFilesPanel}
+              className="flex-1 p-2 rounded-md flex justify-center items-center space-x-1 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <FolderOpen className="w-4 h-4 mr-1" />
+              <span className="text-sm">Files</span>
+            </button>
+            
+            <button
+              onClick={onOpenRecentFiles}
+              className="flex-1 p-2 rounded-md flex justify-center items-center space-x-1 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <FileText className="w-4 h-4 mr-1" />
+              <span className="text-sm">Recent</span>
+            </button>
+          </div>
+        )}
 
         <div className="flex justify-center px-2">
           <button
