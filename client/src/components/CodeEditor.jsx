@@ -274,7 +274,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
         content: "${userName}";
         position: absolute;
         right: 100%;
-        opacity: 0.8;
+        opacity: 0.95;
         background-color: ${color};
         color: white;
         font-size: 10px;
@@ -283,6 +283,8 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
         white-space: nowrap;
         z-index: 10001;
         pointer-events: none;
+        text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
       }
       .remote-cursor-name-text-${userId} {
         background-color: ${color};
@@ -294,6 +296,8 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
         position: absolute;
         top: -20px;
         z-index: 10001;
+        text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
       }
     `;
   }, []);

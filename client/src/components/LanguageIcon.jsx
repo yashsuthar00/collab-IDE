@@ -1,109 +1,76 @@
 import React from 'react';
-import { 
-  FileCode, 
-  FileJson, 
-  FileText, 
-  FileSpreadsheet, 
-  FileTerminal,
-  Hash, 
-  Coffee, 
-  FileSymlink, 
-  File,
-  Binary,
-  FileType
-} from 'lucide-react';
+import { FileCode, Terminal, File, FileText, FileJson, Coffee, Hash } from 'lucide-react';
 
 /**
- * Component for displaying a language-specific icon
- * @param {Object} props Component props
- * @param {string} props.language Programming language identifier
- * @param {string} props.className Additional CSS classes
- * @param {number} props.size Icon size (default: 20)
- * @returns {JSX.Element} Icon component
+ * Component to display appropriate icon based on file language
  */
-const LanguageIcon = ({ language, className = "", size = 20 }) => {
-  // Convert language to lowercase for case-insensitive matching
-  const lang = language?.toLowerCase();
-
-  // Map of language identifiers to their respective icons and colors
-  const getIconConfig = () => {
-    const config = {
-      // JavaScript family
-      javascript: { icon: FileCode, color: "text-yellow-500 dark:text-yellow-400" },
-      js: { icon: FileCode, color: "text-yellow-500 dark:text-yellow-400" },
-      node: { icon: FileCode, color: "text-green-600 dark:text-green-400" },
-
-      // TypeScript
-      typescript: { icon: FileCode, color: "text-blue-500 dark:text-blue-400" },
-      ts: { icon: FileCode, color: "text-blue-500 dark:text-blue-400" },
-      
-      // Python
-      python: { icon: FileCode, color: "text-green-500 dark:text-green-400" },
-      py: { icon: FileCode, color: "text-green-500 dark:text-green-400" },
-      
-      // Java
-      java: { icon: Coffee, color: "text-brown-500 dark:text-amber-700" },
-      
-      // C family
-      c: { icon: FileCode, color: "text-blue-500 dark:text-blue-400" },
-      cpp: { icon: FileCode, color: "text-blue-600 dark:text-blue-500" },
-      'c++': { icon: FileCode, color: "text-blue-600 dark:text-blue-500" },
-      
-      // C#
-      csharp: { icon: Hash, color: "text-purple-500 dark:text-purple-400" },
-      'c#': { icon: Hash, color: "text-purple-500 dark:text-purple-400" },
-      
-      // Web technologies
-      php: { icon: FileCode, color: "text-indigo-500 dark:text-indigo-400" },
-      html: { icon: FileCode, color: "text-orange-500 dark:text-orange-400" },
-      css: { icon: FileCode, color: "text-blue-500 dark:text-blue-400" },
-      scss: { icon: FileCode, color: "text-pink-500 dark:text-pink-400" },
-      
-      // Other languages
-      ruby: { icon: FileCode, color: "text-red-500 dark:text-red-400" },
-      go: { icon: FileCode, color: "text-cyan-500 dark:text-cyan-400" },
-      rust: { icon: FileCode, color: "text-orange-500 dark:text-orange-400" },
-      kotlin: { icon: FileCode, color: "text-purple-500 dark:text-purple-400" },
-      swift: { icon: FileCode, color: "text-orange-500 dark:text-orange-400" },
-      
-      // Data formats
-      json: { icon: FileJson, color: "text-yellow-500 dark:text-yellow-400" },
-      xml: { icon: FileCode, color: "text-orange-300 dark:text-orange-400" },
-      yaml: { icon: FileCode, color: "text-cyan-500 dark:text-cyan-400" },
-      yml: { icon: FileCode, color: "text-cyan-500 dark:text-cyan-400" },
-      
-      // Markup and text
-      markdown: { icon: FileText, color: "text-blue-500 dark:text-blue-400" },
-      md: { icon: FileText, color: "text-blue-500 dark:text-blue-400" },
-      txt: { icon: FileText, color: "text-gray-500 dark:text-gray-400" },
-      plaintext: { icon: FileText, color: "text-gray-500 dark:text-gray-400" },
-      
-      // Data processing
-      sql: { icon: FileSpreadsheet, color: "text-green-500 dark:text-green-400" },
-      csv: { icon: FileSpreadsheet, color: "text-green-300 dark:text-green-500" },
-      
-      // Shell scripts
-      shell: { icon: FileTerminal, color: "text-gray-500 dark:text-gray-400" },
-      bash: { icon: FileTerminal, color: "text-gray-500 dark:text-gray-400" },
-      zsh: { icon: FileTerminal, color: "text-gray-500 dark:text-gray-400" },
-      powershell: { icon: FileTerminal, color: "text-blue-500 dark:text-blue-400" },
-      
-      // Binary and executable formats
-      binary: { icon: Binary, color: "text-gray-600 dark:text-gray-400" },
-      exe: { icon: Binary, color: "text-gray-600 dark:text-gray-400" },
-      
-      // Font formats
-      font: { icon: FileType, color: "text-indigo-400 dark:text-indigo-300" },
-    };
+const LanguageIcon = ({ language, className, size = 18 }) => {
+  const getIconForLanguage = () => {
+    if (!language) return File;
     
-    return config[lang] || { icon: File, color: "text-gray-500 dark:text-gray-400" };
+    const lang = language.toLowerCase();
+    
+    switch (lang) {
+      case 'javascript':
+      case 'js':
+        return (props) => <FileCode {...props} color="#F0DB4F" />;
+      
+      case 'typescript':
+      case 'ts':
+        return (props) => <FileCode {...props} color="#3178C6" />;
+        
+      case 'jsx':
+      case 'tsx':
+      case 'react':
+        return (props) => <FileCode {...props} color="#61DAFB" />;
+        
+      case 'html':
+        return (props) => <FileCode {...props} color="#E34F26" />;
+        
+      case 'css':
+        return (props) => <FileCode {...props} color="#1572B6" />;
+        
+      case 'python':
+      case 'py':
+        return (props) => <FileCode {...props} color="#3776AB" />;
+        
+      case 'java':
+        return (props) => <Coffee {...props} color="#ED8B00" />;
+        
+      case 'c':
+      case 'cpp':
+      case 'c++':
+        return (props) => <FileText {...props} color="#00599C" />;
+        
+      case 'csharp':
+      case 'c#':
+        return (props) => <Hash {...props} color="#512BD4" />;
+        
+      case 'go':
+        return (props) => <FileCode {...props} color="#00ADD8" />;
+        
+      case 'ruby':
+      case 'rb':
+        return (props) => <FileCode {...props} color="#CC342D" />;
+        
+      case 'php':
+        return (props) => <FileCode {...props} color="#777BB4" />;
+        
+      case 'json':
+        return FileJson;
+        
+      case 'shell':
+      case 'bash':
+      case 'sh':
+        return Terminal;
+        
+      default:
+        return File;
+    }
   };
 
-  const { icon: IconComponent, color } = getIconConfig();
-
-  return (
-    <IconComponent className={`${color} flex-shrink-0 ${className}`} size={size} />
-  );
+  const Icon = getIconForLanguage();
+  return <Icon size={size} className={className} />;
 };
 
 export default LanguageIcon;

@@ -12,6 +12,12 @@
   --navbar-bg: #ffffff;
   --output-bg: #ffffff;
   --error-bg: #fef2f2;
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --text-inverted: #e6e6e6;
+  --card-text: #1f2937;
+  --highlight-bg: #f3f4f6;
 }
 
 html.dark {
@@ -25,6 +31,12 @@ html.dark {
   --navbar-bg: #111827;
   --output-bg: #111827;
   --error-bg: #7f1d1d;
+  --text-primary: #f3f4f6;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --text-inverted: #1f2937;
+  --card-text: #e6e6e6;
+  --highlight-bg: #374151;
 }
 
 body {
@@ -94,6 +106,54 @@ body {
 /* Custom styling for our file navigation */
 .directory-tree-item {
   transition: all 0.2s ease;
+  position: relative;
+}
+
+.directory-tree-item:hover > div > button,
+.file-item:hover > button {
+  opacity: 1 !important;
+}
+
+/* Better scrollbar for file structure */
+.directory-tree-children {
+  overflow-y: visible;
+  max-height: none; /* Remove any height restrictions */
+}
+
+/* Improved file tree scrolling */
+#file-tree-panel {
+  transition: all 0.3s ease;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+#file-tree-panel:hover::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* Prevent long file names from breaking the layout */
+.directory-tree-item .truncate,
+.file-item .truncate {
+  max-width: calc(100% - 40px);
+}
+
+/* Position fix for directory tree scroll container */
+.file-tree-scroll-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 100%;
+  will-change: transform;
+}
+
+/* Add some responsive adjustments for mobile */
+@media (max-width: 768px) {
+  #file-tree-panel {
+    max-height: 40vh;
+  }
+  
+  #file-content-area {
+    max-height: 60vh;
+  }
 }
 
 /* Add the rest of your file browser styles here */
@@ -204,12 +264,60 @@ button {
 .dark .dark\:text-gray-300,
 .dark .dark\:text-gray-400,
 .dark .dark\:text-gray-100,
-.dark .dark\:text-gray-200 {
-  color: var(--foreground) !important;
+.dark .dark\:text-gray-200,
+.dark .dark\:text-white {
+  color: var(--text-primary) !important;
 }
 
-.dark .dark\:border-gray-700 {
+/* Fix text colors for better contrast */
+.dark .text-gray-700, 
+.dark .text-gray-800, 
+.dark .text-gray-900 {
+  color: var(--text-primary) !important;
+}
+
+.dark .text-gray-500, 
+.dark .text-gray-600 {
+  color: var(--text-secondary) !important;
+}
+
+/* Handle FriendsMenu specific text issues */
+.dark .notification-text,
+.dark .friend-name,
+.dark .friend-status,
+.dark .user-name {
+  color: var(--text-primary) !important;
+}
+
+/* Improve contrast for notifications and user panels */
+.dark .notification-item {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
   border-color: var(--border-color) !important;
+}
+
+.dark .dropdown-menu,
+.dark .user-panel {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Fix form elements for better cross-theme visibility */
+.dark .form-input,
+.dark .form-select {
+  background-color: var(--input-bg) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Ensure dropdown menu items are visible in dark mode */
+.dark .dropdown-item {
+  color: var(--text-primary) !important;
+}
+
+.dark .dropdown-item:hover {
+  background-color: var(--highlight-bg) !important;
 }
 
 /* Explicitly set output panel colors */
@@ -348,16 +456,30 @@ html.dark .navbar-component {
 .driver-popover-footer .driver-done-btn {
   border-radius: 6px !important;
   padding: 8px 15px !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  z-index: 1002 !important;
 }
 
 .driver-popover-footer .driver-next-btn,
 .driver-popover-footer .driver-done-btn {
   background-color: #3b82f6 !important;
+  color: white !important;
 }
 
 .driver-popover-footer .driver-next-btn:hover,
 .driver-popover-footer .driver-done-btn:hover {
   background-color: #2563eb !important;
+}
+
+/* Overlay click handler - make the overlay clickable */
+.driver-overlay, 
+.driver-active-element {
+  pointer-events: auto !important;
+}
+
+.driver-overlay {
+  cursor: pointer !important;
 }
 
 /* Extra styles for driver.js on mobile devices */

@@ -5,6 +5,7 @@ import { Provider } from 'react-redux'
 import { store } from './store'
 import router from './router'
 import './index.css'
+// Import driver.js CSS directly - this is the clean approach without preloading
 import 'driver.js/dist/driver.css'
 import './css/animations.css'
 
@@ -43,7 +44,50 @@ const initializeTheme = () => {
   if (metaThemeColor) {
     metaThemeColor.setAttribute('content', savedTheme === 'dark' ? '#1a1b26' : '#ffffff');
   }
+  
+  // Apply some CSS overrides based on theme
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-theme-applied');
+  } else {
+    document.body.classList.remove('dark-theme-applied');
+  }
 };
+
+// Call initializeTheme immediately
+initializeTheme();
+
+// Initialize driver.js button fix script
+const fixDriverButtons = () => {
+  // Create a style element to ensure driver.js buttons are properly styled
+  const styleEl = document.createElement('style');
+  styleEl.id = 'driver-js-fixes';
+  styleEl.innerHTML = `
+    .driver-popover-footer button {
+      pointer-events: auto !important;
+      cursor: pointer !important;
+    }
+    .driver-close-btn, .driver-next-btn, .driver-prev-btn, .driver-done-btn {
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      user-select: auto !important;
+    }
+    .driver-overlay {
+      pointer-events: auto !important;
+      cursor: pointer !important;
+    }
+  `;
+  document.head.appendChild(styleEl);
+};
+
+// Call this on load
+fixDriverButtons();
+
+// Also listen for theme changes
+window.addEventListener('storage', (event) => {
+  if (event.key === 'theme') {
+    initializeTheme();
+  }
+});
 
 // Handle uncaught promise rejections
 window.addEventListener('unhandledrejection', event => {
@@ -67,9 +111,8 @@ window.addEventListener('unhandledrejection', event => {
   console.error('Unhandled Promise Rejection:', event.reason);
 });
 
-// Apply mobile fixes and theme immediately
+// Apply mobile fixes immediately
 fixViewportForMobile();
-initializeTheme();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

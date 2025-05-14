@@ -35,15 +35,175 @@
 .driver-popover {
   /* Add any custom styling for the tour popover */
   box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
+  z-index: 1001 !important;
 }
 
 .driver-popover-title {
   font-weight: 600 !important;
+  font-size: 1.125rem !important;
+  margin-bottom: 8px !important;
+}
+
+.driver-popover-description {
+  font-size: 0.925rem !important;
+  line-height: 1.5 !important;
+  margin-bottom: 16px !important;
+}
+
+.driver-popover-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-top: 16px !important;
+  position: relative !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  padding: 12px 16px !important;
+}
+
+.driver-popover-footer button {
+  cursor: pointer !important;
+  margin: 0 4px !important;
+  padding: 8px 16px !important;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  transition: all 0.2s ease !important;
+}
+
+.driver-popover-footer .driver-close-btn {
+  background-color: transparent !important;
+  color: #6b7280 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.driver-popover-footer .driver-close-btn:hover {
+  background-color: #f3f4f6 !important;
+}
+
+.driver-popover-footer .driver-next-btn,
+.driver-popover-footer .driver-prev-btn,
+.driver-popover-footer .driver-done-btn {
+  padding: 8px 16px !important;
+  min-width: 70px !important;
+  text-align: center !important;
+}
+
+.driver-popover-footer .driver-next-btn,
+.driver-popover-footer .driver-done-btn {
+  background-color: #3b82f6 !important;
+  color: white !important;
+  border: none !important;
+}
+
+.driver-popover-footer .driver-next-btn:hover,
+.driver-popover-footer .driver-done-btn:hover {
+  background-color: #2563eb !important;
+}
+
+.driver-popover-footer .driver-prev-btn {
+  background-color: transparent !important;
+  color: #6b7280 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.driver-popover-footer .driver-prev-btn:hover {
+  background-color: #f3f4f6 !important;
+}
+
+/* Fix driver.js buttons and overlay issues */
+.driver-overlay {
+  opacity: 0.7 !important;
+  z-index: 1000 !important;
+  cursor: pointer !important;
 }
 
 /* Ensure the tour works in mobile view */
 @media (max-width: 768px) {
   .driver-popover {
-    max-width: 280px !important;
+    max-width: 90vw !important;
+    width: auto !important;
   }
+
+  .driver-popover-footer button {
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+  }
+  
+  /* Better spacing on mobile to make buttons more tappable */
+  .driver-popover-footer {
+    padding: 12px !important;
+    flex-wrap: wrap !important;
+  }
+  
+  .driver-popover-footer .driver-close-btn {
+    margin-right: auto !important;
+  }
+  
+  .driver-popover-footer .driver-next-btn,
+  .driver-popover-footer .driver-prev-btn,
+  .driver-popover-footer .driver-done-btn {
+    min-width: 60px !important;
+  }
+}
+
+/* Improve driver.js appearance in dark mode */
+html.dark .driver-popover {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.dark .driver-popover-title {
+  color: #f1f5f9 !important;
+}
+
+html.dark .driver-popover-description {
+  color: #cbd5e1 !important;
+}
+
+html.dark .driver-popover-footer .driver-close-btn,
+html.dark .driver-popover-footer .driver-prev-btn {
+  color: #e2e8f0 !important;
+  border: 1px solid #334155 !important;
+}
+
+html.dark .driver-popover-footer .driver-close-btn:hover,
+html.dark .driver-popover-footer .driver-prev-btn:hover {
+  background-color: #334155 !important;
+}
+
+/* Ensure all driver controls have high contrast in both modes */
+body[data-theme="dark"] .driver-popover {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+body[data-theme="dark"] .driver-popover-title {
+  color: #f1f5f9 !important;
+}
+
+body[data-theme="dark"] .driver-popover-description {
+  color: #cbd5e1 !important;
+}
+
+/* Improve light theme driver.js elements when system is in dark mode */
+body[data-theme="light"] .driver-popover {
+  background-color: #ffffff !important;
+  color: #111827 !important; 
+  border: 1px solid #e5e7eb;
+}
+
+body[data-theme="light"] .driver-popover-title {
+  color: #111827 !important;
+}
+
+body[data-theme="light"] .driver-popover-description {
+  color: #4b5563 !important;
+}
+
+/* Ensure the collab-ide-popover class has proper styling */
+.collab-ide-popover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 8px !important;
 }

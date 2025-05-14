@@ -40,8 +40,14 @@ const RecentFiles = ({ onFileSelect, onClose }) => {
       const response = await api.files.getFile(fileId);
       if (response && response.data) {
         onFileSelect(response.data);
-        // Close the recent files modal after selecting a file
         onClose();
+        
+        // Close the mobile navbar if we're on mobile
+        if (window.innerWidth < 768) {
+          // Dispatch events to close navbar and switch to code view
+          window.dispatchEvent(new CustomEvent('close-mobile-navbar'));
+          window.dispatchEvent(new CustomEvent('switch-mobile-view', { detail: 'code' }));
+        }
       } else {
         toast.error('Could not load file data');
       }

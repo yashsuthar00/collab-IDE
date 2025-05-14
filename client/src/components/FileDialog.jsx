@@ -279,14 +279,14 @@ const FileDialog = ({
             </label>
             <button
               type="button"
-              className="w-full flex justify-between items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+              className="w-full flex justify-between items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
               onClick={handleLocationClick}
             >
               <div className="flex items-center">
-                <Folder size={16} className="mr-2 text-gray-500" />
-                <span>{selectedDirectoryName}</span>
+                <Folder size={16} className="mr-2 text-gray-500 dark:text-gray-400" />
+                <span className="text-gray-900 dark:text-white">{selectedDirectoryName}</span>
               </div>
-              {directoryTreeOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              {directoryTreeOpen ? <ChevronUp size={16} className="text-gray-500 dark:text-gray-400" /> : <ChevronDown size={16} className="text-gray-500 dark:text-gray-400" />}
             </button>
             
             {/* Directory selection tree - always visible initially in create mode */}

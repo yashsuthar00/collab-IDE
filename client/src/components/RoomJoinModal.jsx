@@ -120,7 +120,7 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
             >
               <div className="flex items-center justify-center">
                 <LogIn className="w-4 h-4 mr-2" />
-                Join Existing
+                <span className="room-btn-text">Join Existing</span>
               </div>
             </button>
             <button
@@ -137,7 +137,7 @@ const RoomJoinModal = ({ isOpen, onClose }) => {
             >
               <div className="flex items-center justify-center">
                 <Plus className="w-4 h-4 mr-2" />
-                Create New
+                <span className="room-btn-text">Create New</span>
               </div>
             </button>
           </div>

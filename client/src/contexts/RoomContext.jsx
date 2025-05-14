@@ -335,6 +335,11 @@ export const RoomProvider = ({ children }) => {
     // If we're coming from an invitation, set window flag to help debug
     if (fromInvitation) {
       window._joinFromInvitation = true;
+      
+      // Dispatch a custom event that we can listen for to show an invitation success message
+      window.dispatchEvent(new CustomEvent('room-invitation-accepted', { 
+        detail: { roomId, userName }
+      }));
     }
     
     socket.emit('join-room', { roomId, userName, fromInvitation });

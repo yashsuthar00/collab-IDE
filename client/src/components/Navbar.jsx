@@ -89,6 +89,40 @@ function Navbar({
     };
   }, []);
 
+  // Add an effect to listen for the close-mobile-navbar event
+  useEffect(() => {
+    const handleCloseMobileMenu = () => {
+      if (menuOpen) {
+        setMenuOpen(false);
+      }
+    };
+
+    // Listen for the custom event
+    window.addEventListener('close-mobile-navbar', handleCloseMobileMenu);
+    
+    // Listen for file selection events that should close the menu
+    window.addEventListener('file-selected', handleCloseMobileMenu);
+
+    return () => {
+      window.removeEventListener('close-mobile-navbar', handleCloseMobileMenu);
+      window.removeEventListener('file-selected', handleCloseMobileMenu);
+    };
+  }, [menuOpen]);
+
+  // Export a method that can be called from outside to close the menu
+  useEffect(() => {
+    // Expose the menu close function globally so it can be called from other components
+    window.closeNavbarMobileMenu = () => {
+      if (menuOpen) {
+        setMenuOpen(false);
+      }
+    };
+
+    return () => {
+      window.closeNavbarMobileMenu = undefined;
+    };
+  }, [menuOpen]);
+
   return (
     <nav id="navbar" className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 px-4 shadow-sm">
       <div className="container mx-auto flex items-center justify-between">

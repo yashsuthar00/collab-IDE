@@ -11,6 +11,7 @@ import AuthModal from './components/AuthModal';
 import OAuthCallback from './components/OAuthCallback';
 import FilesPanel from './components/FilesPanel';
 import RecentFiles from './components/RecentFiles';
+import UserPanel from './components/UserPanel'; // Add this import
 import FileDialog from './components/FileDialog'; // Add this import
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
@@ -241,6 +242,23 @@ function CollaborativeApp() {
     window.addEventListener('room-code-received', handleRoomCodeReceived);
     return () => {
       window.removeEventListener('room-code-received', handleRoomCodeReceived);
+    };
+  }, []);
+
+  // Add an effect to show a toast notification when joining a room via invitation
+  useEffect(() => {
+    const handleInvitationAccepted = (event) => {
+      if (event.detail) {
+        toast.success(`Joined room successfully!`, {
+          position: "top-right",
+          duration: 3000
+        });
+      }
+    };
+    
+    window.addEventListener('room-invitation-accepted', handleInvitationAccepted);
+    return () => {
+      window.removeEventListener('room-invitation-accepted', handleInvitationAccepted);
     };
   }, []);
 
@@ -510,6 +528,38 @@ function CollaborativeApp() {
       tour = createMainTour();
     }
     
+    // Add global click handler to close tour when clicking outside
+    const handleGlobalClick = (event) => {
+      // Check if click is on the overlay (outside the popover)
+      if (event.target.classList.contains('driver-overlay')) {
+        tour.destroy();
+        document.removeEventListener('click', handleGlobalClick);
+      }
+    };
+    
+    // Add event listener after a small delay to prevent immediate closing
+    setTimeout(() => {
+      document.addEventListener('click', handleGlobalClick);
+    }, 500);
+    
+    // Store cleanup function reference
+    tour._cleanupClickHandler = () => {
+      document.removeEventListener('click', handleGlobalClick);
+    };
+    
+    // Original onDestroyed handler
+    const originalOnDestroyed = tour.options.onDestroyed;
+    
+    // Override onDestroyed to also remove click handler
+    tour.options.onDestroyed = () => {
+      if (typeof originalOnDestroyed === 'function') {
+        originalOnDestroyed();
+      }
+      if (typeof tour._cleanupClickHandler === 'function') {
+        tour._cleanupClickHandler();
+      }
+    };
+    
     setCurrentTour(tour);
     tour.drive();
   };
@@ -522,8 +572,33 @@ function CollaborativeApp() {
       }
     };
     
+    // Add event listener to handle closing mobile navbar when a file is selected
+    const handleCloseMobileNavbar = () => {
+      // Toggle mobile navbar menu (assuming this is what we need to close)
+      const navbarToggle = document.querySelector('.navbar-component button[aria-label="Toggle menu"]');
+      if (navbarToggle && window.innerWidth < 768) {
+        try {
+          // If there's a React handler, we need to find it and call it
+          // This is a backup approach; using custom events is better
+          const menuOpen = document.querySelector('.navbar-component .md\\:hidden.flex, .navbar-component .md\\:hidden.block');
+          
+          if (menuOpen) {
+            // Simulate a click on the navbar toggle button
+            navbarToggle.click();
+          }
+        } catch (error) {
+          console.debug('Error toggling mobile nav:', error);
+        }
+      }
+    };
+    
     window.addEventListener('switch-mobile-view', handleViewSwitch);
-    return () => window.removeEventListener('switch-mobile-view', handleViewSwitch);
+    window.addEventListener('close-mobile-navbar', handleCloseMobileNavbar);
+    
+    return () => {
+      window.removeEventListener('switch-mobile-view', handleViewSwitch);
+      window.removeEventListener('close-mobile-navbar', handleCloseMobileNavbar);
+    };
   }, []);
 
   // Handle room modal open/close with tracking

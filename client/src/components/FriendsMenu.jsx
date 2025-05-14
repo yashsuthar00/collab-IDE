@@ -69,6 +69,26 @@ const FriendsMenu = ({ isMobile = false }) => {
   };
   
   if (!isAuthenticated) return null;
+
+  // Add this to improve dropdown styling with proper theme-specific classes
+  const NotificationItem = ({ notification }) => {
+    return (
+      <div 
+        className="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 notification-item"
+      >
+        <div className="flex items-center mb-1">
+          <UserAvatar user={notification.sender} size="sm" />
+          <p className="ml-2 text-sm font-medium text-gray-900 dark:text-white notification-title">
+            {notification.sender.username}
+          </p>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 notification-desc">
+          {notification.type === 'friend-request' ? 'Sent you a friend request' : 
+           `Invited you to room ${notification.roomName || ''}`}
+        </p>
+      </div>
+    );
+  };
   
   return (
     <>
@@ -105,7 +125,7 @@ const FriendsMenu = ({ isMobile = false }) => {
           {showNotificationDropdown && totalNotifications > 0 && (
             <div 
               ref={notificationDropdownRef}
-              className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 overflow-hidden border border-gray-200 dark:border-gray-700"
+              className="absolute right-0 mt-2 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 overflow-hidden border border-gray-200 dark:border-gray-700 dropdown-menu"
               style={{ 
                 right: isMobile ? '-120px' : '0', 
                 width: isMobile ? '280px' : '320px' 
@@ -121,38 +141,30 @@ const FriendsMenu = ({ isMobile = false }) => {
               <div className="max-h-96 overflow-y-auto">
                 {/* Friend requests */}
                 {pendingRequests.length > 0 && (
-                  <div>
+                  <div className="notifications-section">
                     {pendingRequests.slice(0, 3).map(request => (
-                      <div key={request._id} className="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <div className="flex items-center mb-1">
-                          <UserAvatar user={request.sender} size="sm" />
-                          <p className="ml-2 text-sm font-medium text-gray-900 dark:text-white">
-                            {request.sender.username}
-                          </p>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Sent you a friend request
-                        </p>
-                      </div>
+                      <NotificationItem 
+                        key={request._id} 
+                        notification={{
+                          ...request,
+                          type: 'friend-request'
+                        }}
+                      />
                     ))}
                   </div>
                 )}
                 
                 {/* Room invitations */}
                 {roomInvitations.length > 0 && (
-                  <div>
+                  <div className="notifications-section">
                     {roomInvitations.slice(0, 3).map(invitation => (
-                      <div key={invitation._id} className="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <div className="flex items-center mb-1">
-                          <UserAvatar user={invitation.sender} size="sm" />
-                          <p className="ml-2 text-sm font-medium text-gray-900 dark:text-white">
-                            {invitation.sender.username}
-                          </p>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Invited you to room <span className="font-mono">{invitation.roomName}</span>
-                        </p>
-                      </div>
+                      <NotificationItem 
+                        key={invitation._id}
+                        notification={{
+                          ...invitation,
+                          type: 'room-invitation'
+                        }}
+                      />
                     ))}
                   </div>
                 )}

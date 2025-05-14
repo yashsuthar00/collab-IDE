@@ -34,7 +34,6 @@ export const generateUserColor = (userId) => {
  * @param {string} userName - The user's display name
  */
 export const createCursorStyleElement = (userId, color, userName) => {
-  // Create or update the style element
   const styleId = `cursor-style-${userId}`;
   let styleEl = document.getElementById(styleId);
   
@@ -44,7 +43,6 @@ export const createCursorStyleElement = (userId, color, userName) => {
     document.head.appendChild(styleEl);
   }
   
-  // Generate the CSS rules for this user's cursor and label
   styleEl.innerHTML = `
     .remote-cursor-${userId} {
       background-color: ${color} !important;
@@ -71,6 +69,7 @@ export const createCursorStyleElement = (userId, color, userName) => {
       white-space: nowrap;
       z-index: 10001;
       pointer-events: none;
+      text-shadow: 0px 0px 2px rgba(0, 0, 0, 0.5);
     }
     
     .remote-cursor-name-text-${userId} {
@@ -81,6 +80,7 @@ export const createCursorStyleElement = (userId, color, userName) => {
       border-radius: 2px;
       white-space: nowrap;
       z-index: 10001;
+      text-shadow: 0px 0px 2px rgba(0, 0, 0, 0.5);
     }
     
     .remote-selection-${userId} {
@@ -89,8 +89,6 @@ export const createCursorStyleElement = (userId, color, userName) => {
       border-radius: 2px;
     }
   `;
-  
-  return styleEl;
 };
 
 /**

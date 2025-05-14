@@ -6,11 +6,23 @@ import { getFromStorage, saveToStorage } from './storage';
  * Create tour guides for new users using driver.js
  */
 
+// Helper function to check if tour has been seen
+export const hasTourBeenSeen = (tourName) => {
+  return getFromStorage(`has_seen_${tourName}_tour`) === 'true' ||
+         localStorage.getItem(`tour-${tourName}-seen`) === 'true';
+};
+
 // Main app tour
 export const createMainTour = () => {
   return driver({
     showProgress: true,
     animate: true,
+    allowClose: true,
+    overlayClickNext: false,
+    stagePadding: 10,
+    opacity: 0.7,
+    disableActiveInteraction: false,
+    popoverClass: 'collab-ide-popover',
     steps: [
       {
         element: '#navbar',
@@ -91,7 +103,7 @@ export const createMainTour = () => {
     nextBtnText: 'Next',
     prevBtnText: 'Previous',
     doneBtnText: 'Done',
-    closeBtnText: 'Close',
+    closeBtnText: 'Skip',
     onHighlightStarted: (element) => {
       // Ensures mobile view is correct when highlighting elements
       if (window.innerWidth < 768) {
@@ -107,6 +119,18 @@ export const createMainTour = () => {
       }
     },
     onDestroyed: () => {
+      // Mark this tour as seen
+      localStorage.setItem('tour-main-seen', 'true');
+      saveToStorage('has_seen_main_tour', 'true');
+      
+      // Handle theme adjustments after tour completes
+      const theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      document.body.dataset.theme = theme;
+    },
+    onDeselected: () => {
+      // When clicking outside
+      localStorage.setItem('tour-main-seen', 'true');
       saveToStorage('has_seen_main_tour', 'true');
     }
   });
@@ -117,6 +141,10 @@ export const createInputPanelTour = () => {
   return driver({
     showProgress: true,
     animate: true,
+    allowClose: true, 
+    overlayClickNext: false,
+    stagePadding: 10,
+    opacity: 0.7,
     steps: [
       {
         element: '#input-tab-button',
@@ -147,8 +175,12 @@ export const createInputPanelTour = () => {
     nextBtnText: 'Next',
     prevBtnText: 'Previous',
     doneBtnText: 'Done',
-    closeBtnText: 'Close',
+    closeBtnText: 'Skip',
     onDestroyed: () => {
+      saveToStorage('has_seen_input_tour', 'true');
+    },
+    onDeselected: () => {
+      // When clicking outside
       saveToStorage('has_seen_input_tour', 'true');
     }
   });
@@ -159,6 +191,10 @@ export const createUserPanelTour = () => {
   return driver({
     showProgress: true,
     animate: true,
+    allowClose: true,
+    overlayClickNext: false,
+    stagePadding: 10,
+    opacity: 0.7,
     steps: [
       {
         element: '#user-panel-content',
@@ -204,8 +240,12 @@ export const createUserPanelTour = () => {
     nextBtnText: 'Next',
     prevBtnText: 'Previous',
     doneBtnText: 'Done',
-    closeBtnText: 'Close',
+    closeBtnText: 'Skip',
     onDestroyed: () => {
+      saveToStorage('has_seen_user_panel_tour', 'true');
+    },
+    onDeselected: () => {
+      // When clicking outside
       saveToStorage('has_seen_user_panel_tour', 'true');
     }
   });
@@ -216,14 +256,11 @@ export const createCollaborationTour = () => {
   return driver({
     showProgress: true,
     animate: true,
-    beforeHighlighted: (element) => {
-      // When we're about to highlight the users-panel-button, click it automatically
-      if (element.id === 'users-panel-button') {
-        setTimeout(() => {
-          document.getElementById('users-panel-button')?.click();
-        }, 300);
-      }
-    },
+    allowClose: true,
+    overlayClickNext: false,
+    stagePadding: 10,
+    opacity: 0.7,
+    popoverClass: 'collab-ide-popover',
     steps: [
       {
         element: '#room-info',
@@ -296,7 +333,7 @@ export const createCollaborationTour = () => {
     nextBtnText: 'Next',
     prevBtnText: 'Previous',
     doneBtnText: 'Done',
-    closeBtnText: 'Close',
+    closeBtnText: 'Skip',
     overlayColor: 'rgba(0, 0, 0, 0.5)',
     onDestroyStarted: () => {
       // Make sure panel is closed when tour is destroyed
@@ -307,13 +344,79 @@ export const createCollaborationTour = () => {
     },
     onDestroyed: () => {
       saveToStorage('has_seen_collab_tour', 'true');
+    },
+    onDeselected: () => {
+      // When clicking outside
+      saveToStorage('has_seen_collab_tour', 'true');
     }
   });
 };
 
-// Check if a specific tour has been seen by the user
-export const hasTourBeenSeen = (tourName) => {
-  return !!getFromStorage(`has_seen_${tourName}_tour`);
+// File panel tour (for when a user opens the files panel)
+export const createFilePanelTour = () => {
+  return driver({
+    showProgress: true,
+    animate: true,
+    allowClose: true,
+    overlayClickNext: false,
+    stagePadding: 10,
+    opacity: 0.7,
+    steps: [
+      {
+        element: '#file-tree-panel',
+        popover: {
+          title: 'File Structure',
+          description: 'Navigate your files and directories easily with this hierarchical view.',
+          side: 'right',
+        }
+      },
+      {
+        element: '#file-content-area',
+        popover: {
+          title: 'File Contents',
+          description: 'View all files in the current directory here. Click on any file to open it in the editor.',
+          side: 'left',
+          align: 'start'
+        }
+      },
+      {
+        element: '#file-search-filter',
+        popover: {
+          title: 'Search & Filter',
+          description: 'Search for files by name or filter them by various properties.',
+          side: 'bottom'
+        }
+      },
+      {
+        element: '#file-action-buttons',
+        popover: {
+          title: 'File Actions',
+          description: 'Create new files or folders in your current directory.',
+          side: 'bottom'
+        }
+      },
+      {
+        element: '#directory-breadcrumb',
+        popover: {
+          title: 'Navigation Breadcrumbs',
+          description: 'See your current location and quickly navigate to parent directories.',
+          side: 'bottom',
+          align: 'start'
+        }
+      }
+    ],
+    nextBtnText: 'Next',
+    prevBtnText: 'Previous',
+    doneBtnText: 'Done',
+    closeBtnText: 'Skip',
+    onDestroyed: () => {
+      saveToStorage('has_seen_file_panel_tour', 'true');
+    },
+    onDeselected: () => {
+      // When clicking outside
+      saveToStorage('has_seen_file_panel_tour', 'true');
+    }
+  });
 };
 
 // Function to clear a specific tour seen status (for testing)
@@ -327,4 +430,5 @@ export const clearAllTourStatus = () => {
   localStorage.removeItem('has_seen_collab_tour');
   localStorage.removeItem('has_seen_input_tour');
   localStorage.removeItem('has_seen_user_panel_tour');
+  localStorage.removeItem('has_seen_file_panel_tour');
 };

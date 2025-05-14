@@ -1,0 +1,81 @@
+/**
+ * Additional theme-specific styles to ensure consistency across system/app themes
+ */
+
+/* Ensure dark mode text is always visible regardless of system settings */
+.dark .text-white, 
+.dark .text-gray-100,
+.dark .text-gray-200,
+.dark .text-gray-300 {
+  color: #f9fafb !important;
+}
+
+.dark .friend-name, 
+.dark .user-name, 
+.dark .notification-title {
+  color: #f3f4f6 !important;
+}
+
+.dark .friend-status, 
+.dark .notification-desc {
+  color: #d1d5db !important;
+}
+
+/* Ensure light mode text is always visible regardless of system settings */
+body:not(.dark) .text-gray-700,
+body:not(.dark) .text-gray-800,
+body:not(.dark) .text-gray-900 {
+  color: #1f2937 !important;
+}
+
+body:not(.dark) .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+body:not(.dark) .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+/* Fix dropdown and panel components */
+.dark .dropdown-bg,
+.dark .panel-bg {
+  background-color: #1a1b26 !important;
+  border-color: #374151 !important;
+}
+
+.dark .card-bg {
+  background-color: #1e293b !important;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: #1e293b !important;
+}
+
+/* Force readable text for form elements */
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+.input-dark-mode {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+  color: #e6e6e6 !important;
+}
+
+.input-light-mode {
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #1f2937 !important;
+}
+
+/* Improve button contrast in both themes */
+.dark .button-primary {
+  background-color: #3b82f6 !important;
+  color: white !important;
+}
+
+.button-primary {
+  background-color: #3b82f6 !important;
+  color: white !important; 
+}

@@ -29,8 +29,6 @@ const RoomInvitationAlert = ({ invitation }) => {
         // This ensures proper socket connection
         joinRoom(result.roomId, userName, true);
         
-        // After joining, navigate to the room page
-        navigate(`/room/${result.roomId}`);
       } else {
         alert('Couldn\'t join the room. The invitation might be expired.');
       }

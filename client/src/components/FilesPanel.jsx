@@ -176,8 +176,18 @@ const FilesPanel = ({
         
         if (onFileSelect) {
           onFileSelect(response.data);
+          
           // Close the files panel automatically after selecting a file
           onClose();
+          
+          // Also close the mobile navbar if we're on mobile
+          if (window.innerWidth < 768) {
+            // Dispatch a custom event that App.jsx can listen for
+            window.dispatchEvent(new CustomEvent('close-mobile-navbar'));
+            
+            // Set mobile view to 'code' to show the editor
+            window.dispatchEvent(new CustomEvent('switch-mobile-view', { detail: 'code' }));
+          }
         }
       } else {
         throw new Error('Invalid file data received');
@@ -856,7 +866,7 @@ const FilesPanel = ({
             {/* File tree structure */}
             <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2">
               {/* Root directory with toggle */}
-              <div
+              <div 
                 className={`flex items-center py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer ${
                   currentDirectory === 'root' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : ''
                 } ${dropTarget === 'root' ? 'bg-blue-50 dark:bg-blue-900/10 border border-blue-300 dark:border-blue-700' : ''}`}
@@ -878,11 +888,12 @@ const FilesPanel = ({
                     setExpandedDirs(newExpanded);
                   }} 
                   className="mr-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                  aria-label={expandedDirs.has('root') ? "Collapse root directory" : "Expand root directory"}
                 >
-                  {expandedDirs.has('root') ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  {expandedDirs.has('root') ? <ChevronDown size={16} className="text-gray-600 dark:text-gray-300" /> : <ChevronRight size={16} className="text-gray-600 dark:text-gray-300" />}
                 </button>
                 <Folder size={16} className="mr-2 text-blue-500 dark:text-blue-400" />
-                <span className="truncate text-sm font-medium">My Files</span>
+                <span className="truncate text-sm font-medium text-gray-900 dark:text-white">My Files</span>
               </div>
               
               {/* Root level files */}

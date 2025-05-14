@@ -122,3 +122,65 @@ body[data-theme="dark"] input {
   border-color: #374151 !important;
   color: #e6e6e6 !important;
 }
+
+/* Fix text elements in both dark and light themes */
+body[data-theme="dark"] .text-gray-700,
+body[data-theme="dark"] .text-gray-800,
+body[data-theme="dark"] .text-gray-900 {
+  color: #e6e6e6 !important;
+}
+
+body[data-theme="dark"] .text-gray-500,
+body[data-theme="dark"] .text-gray-600 {
+  color: #9ca3af !important;
+}
+
+/* Fix Friends components specifically */
+body[data-theme="dark"] .friend-item,
+body[data-theme="dark"] .notification-item {
+  color: #e6e6e6;
+  background-color: #1a1b26;
+}
+
+body[data-theme="dark"] .friend-name,
+body[data-theme="dark"] .notification-title,
+body[data-theme="dark"] .user-name {
+  color: #f3f4f6 !important; 
+}
+
+body[data-theme="dark"] .friend-status,
+body[data-theme="dark"] .notification-desc {
+  color: #d1d5db !important;
+}
+
+/* Fix contrast issues in light theme when system is dark */
+body[data-theme="light"] .text-gray-100,
+body[data-theme="light"] .text-gray-200,
+body[data-theme="light"] .text-gray-300,
+body[data-theme="light"] .text-gray-400,
+body[data-theme="light"] .text-white {
+  color: #111827 !important;
+}
+
+/* Fix dropdown backgrounds and colors */
+body[data-theme="dark"] .dropdown-menu {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+}
+
+body[data-theme="dark"] .dropdown-item {
+  color: #e6e6e6 !important;
+}
+
+body[data-theme="dark"] .dropdown-item:hover {
+  background-color: #1e293b !important;
+}
+
+/* Enhance accessibility in both themes */
+.user-menu-item {
+  transition: background-color 0.15s ease;
+}
+
+body[data-theme="dark"] .user-menu-item:hover {
+  background-color: #1e293b !important;
+}
