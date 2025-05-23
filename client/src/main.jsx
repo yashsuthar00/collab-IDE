@@ -1,13 +1,9 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { RouterProvider } from 'react-router-dom'
-import { Provider } from 'react-redux'
-import { store } from './store'
-import router from './router'
+import { BrowserRouter as Router } from 'react-router-dom'
+import App from './App.jsx'
 import './index.css'
-// Import driver.js CSS directly - this is the clean approach without preloading
-import 'driver.js/dist/driver.css'
-import './css/animations.css'
+import { Toaster } from 'react-hot-toast'
 
 // Silence React Router future flag warnings and socket warnings
 const originalConsoleWarn = console.warn;
@@ -111,13 +107,23 @@ window.addEventListener('unhandledrejection', event => {
   console.error('Unhandled Promise Rejection:', event.reason);
 });
 
+// Handle OAuth callbacks in development
+const handleDevelopmentOAuth = () => {
+  // Check if we're on an OAuth callback route
+  if (window.location.pathname === '/oauth-callback') {
+    console.log('Processing OAuth callback in development mode...');
+  }
+};
+
 // Apply mobile fixes immediately
 fixViewportForMobile();
+handleDevelopmentOAuth();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Provider store={store}>
-      <RouterProvider router={router} />
-    </Provider>
-  </React.StrictMode>,
+    <Router>
+      <App />
+      <Toaster position="top-right" />
+    </Router>
+  </React.StrictMode>
 )

@@ -168,8 +168,6 @@ const api = {
       }
     },
     
-    // Remove friend
-    removeFriend: (friendId) => apiClient.delete(`/api/friends/${friendId}`)
   },
   
   // Room invitations API
@@ -264,6 +262,14 @@ const api = {
         parentId: newParentId 
       });
     }
+  },
+  
+  // Add shared code API endpoints - Fix the baseURL issue
+  shared: {
+    createSharedCode: (data) => apiClient.post('/api/shared', data),
+    getSharedCode: (slug) => apiClient.get(`/api/shared/${slug}`),
+    getUserSharedCodes: () => apiClient.get('/api/shared/user/all'),
+    deleteSharedCode: (slug) => apiClient.delete(`/api/shared/${slug}`)
   }
 };
 

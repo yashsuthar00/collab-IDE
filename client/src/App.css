@@ -96,6 +96,40 @@
   .mobile-text-xs {
     font-size: 0.75rem;
   }
+  
+  .monaco-editor .overflow-guard,
+  .monaco-editor .monaco-scrollable-element {
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* Improve touch scrolling across the app */
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* Make scrollbars more touch-friendly */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(120, 120, 120, 0.4);
+    border-radius: 10px;
+  }
+  
+  /* Allow content to be scrollable on mobile */
+  .h-screen {
+    height: 100vh; /* Fallback */
+    height: -webkit-fill-available;
+  }
+  
+  /* Fix iOS height issues */
+  html, body {
+    height: -webkit-fill-available;
+  }
 }
 
 /* Explicit dark mode overrides for various components */

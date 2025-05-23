@@ -13,6 +13,7 @@ const cookieParser = require('cookie-parser');
 const User = require('./models/User'); // Import User model
 const codeFileRoutes = require('./routes/codeFiles');
 const directoryRoutes = require('./routes/directories');
+const sharedCodeRoutes = require('./routes/sharedCodeRoutes');
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
 const jwt = require('jsonwebtoken');
@@ -116,6 +117,9 @@ app.use('/api/invitations', require('./routes/invitationRoutes'));
 // Add code file and directory routes
 app.use('/api/codefiles', codeFileRoutes);
 app.use('/api/directories', directoryRoutes);
+
+// Add shared code routes
+app.use('/api/shared', sharedCodeRoutes);
 
 // Add error handling middleware after all routes
 app.use(errorHandler);

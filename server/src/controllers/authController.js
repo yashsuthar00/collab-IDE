@@ -149,12 +149,21 @@ exports.logout = (req, res) => {
 // Google OAuth callback
 exports.googleCallback = (req, res) => {
   try {
+    // Ensure we have a user object with getSignedToken method
+    if (!req.user || typeof req.user.getSignedToken !== 'function') {
+      console.error('OAuth callback error: Invalid user object', req.user);
+      throw new Error('Invalid authentication response');
+    }
+    
     // Get token for the authenticated user
     const token = req.user.getSignedToken();
     
+    // Log the redirect happening
+    console.log(`OAuth successful, redirecting to frontend with token`);
+    
     // Use direct URLs based on environment
     const frontendURL = process.env.NODE_ENV === 'production'
-      ? 'https://colab-ide.vercel.app'  // Direct production client URL
+      ? process.env.CLIENT_URL || 'https://colab-ide.vercel.app'  // Use env variable first
       : 'http://localhost:5173';  // Direct local client URL
     
     // Redirect to frontend with token
@@ -162,7 +171,7 @@ exports.googleCallback = (req, res) => {
   } catch (error) {
     console.error('Google callback error:', error);
     const redirectURL = process.env.NODE_ENV === 'production'
-      ? 'https://colab-ide.vercel.app/login?error=auth_failed'
+      ? `${process.env.CLIENT_URL || 'https://colab-ide.vercel.app'}/login?error=auth_failed`
       : 'http://localhost:5173/login?error=auth_failed';
     res.redirect(redirectURL);
   }
@@ -171,12 +180,21 @@ exports.googleCallback = (req, res) => {
 // GitHub OAuth callback
 exports.githubCallback = (req, res) => {
   try {
+    // Ensure we have a user object with getSignedToken method
+    if (!req.user || typeof req.user.getSignedToken !== 'function') {
+      console.error('OAuth callback error: Invalid user object', req.user);
+      throw new Error('Invalid authentication response');
+    }
+    
     // Get token for the authenticated user
     const token = req.user.getSignedToken();
     
+    // Log the redirect happening
+    console.log(`OAuth successful, redirecting to frontend with token`);
+    
     // Use direct URLs based on environment
     const frontendURL = process.env.NODE_ENV === 'production'
-      ? 'https://colab-ide.vercel.app'  // Direct production client URL
+      ? process.env.CLIENT_URL || 'https://colab-ide.vercel.app'  // Use env variable first
       : 'http://localhost:5173';  // Direct local client URL
     
     // Redirect to frontend with token
@@ -184,7 +202,7 @@ exports.githubCallback = (req, res) => {
   } catch (error) {
     console.error('GitHub callback error:', error);
     const redirectURL = process.env.NODE_ENV === 'production'
-      ? 'https://colab-ide.vercel.app/login?error=auth_failed'
+      ? `${process.env.CLIENT_URL || 'https://colab-ide.vercel.app'}/login?error=auth_failed`
       : 'http://localhost:5173/login?error=auth_failed';
     res.redirect(redirectURL);
   }

@@ -13,6 +13,7 @@ import FilesPanel from './components/FilesPanel';
 import RecentFiles from './components/RecentFiles';
 import UserPanel from './components/UserPanel'; // Add this import
 import FileDialog from './components/FileDialog'; // Add this import
+import SharedCodeViewer from './components/SharedCodeViewer'; // Import the new component
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
 import { FriendsProvider } from './contexts/FriendsContext'; // Import FriendsProvider
@@ -729,6 +730,7 @@ function CollaborativeApp() {
         onSaveFile={handleSaveFile}
         onOpenFilesPanel={() => setIsFilesPanelOpen(true)}
         onOpenRecentFiles={() => setIsRecentFilesOpen(true)}
+        code={code} 
       />
       
       <div className="md:hidden flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -856,12 +858,23 @@ function CollaborativeApp() {
   );
 }
 
+// Main app component that handles routing
+function AppContent() {
+  return (
+    <Routes>
+      <Route path="/shared/:slug" element={<SharedCodeViewer />} />
+      <Route path="/oauth-callback" element={<OAuthCallback />} />
+      <Route path="/*" element={<CollaborativeApp />} />
+    </Routes>
+  );
+}
+
 function App() {
   return (
     <Provider store={store}>
-      <FriendsProvider> {/* Add FriendsProvider here */}
+      <FriendsProvider>
         <RoomProvider>
-          <CollaborativeApp />
+          <AppContent />
         </RoomProvider>
       </FriendsProvider>
     </Provider>

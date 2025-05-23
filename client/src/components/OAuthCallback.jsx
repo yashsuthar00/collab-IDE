@@ -32,6 +32,11 @@ function OAuthCallback() {
           // Use the API client to get user data
           console.log('Fetching user data with token');
           const response = await api.auth.getMe();
+          
+          if (!response.data || !response.data.user) {
+            throw new Error("Invalid response from server");
+          }
+          
           const userData = response.data.user;
           
           console.log("OAuth user data received:", userData);

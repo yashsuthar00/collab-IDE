@@ -922,22 +922,24 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       fontSize: isMobile ? 12 : 14,
       fontFamily: '"Fira Code", "Consolas", monospace',
       fontLigatures: true,
-      minimap: { enabled: !isMobile },
+      minimap: { enabled: window.innerWidth > 768 },
       scrollBeyondLastLine: false,
       automaticLayout: true,
       tabSize: 2,
       wordWrap: "on",
       padding: { top: 10, bottom: showCharsBar ? 40 : 10 },
-      // Mobile-specific options
-      lineNumbers: isMobile ? 'off' : 'on',
+      lineNumbers: window.innerWidth > 576 ? 'on' : 'off', // Disable line numbers on very small screens
       folding: !isMobile,
       glyphMargin: !isMobile,
       scrollbar: {
-        vertical: 'auto',
-        horizontal: 'auto',
-        verticalScrollbarSize: isMobile ? 4 : 10,
-        horizontalScrollbarSize: isMobile ? 4 : 10,
+        vertical: 'visible',
+        horizontal: 'visible',
+        verticalScrollbarSize: 14,
+        horizontalScrollbarSize: 14,
+        alwaysConsumeMouseWheel: false
       },
+      overviewRulerLanes: 0, // Disable overview ruler on mobile
+      renderLineHighlightOnlyWhenFocus: true, // Better for mobile performance
       readOnly,
       domReadOnly: readOnly,
     };

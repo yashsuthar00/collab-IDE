@@ -119,10 +119,20 @@ function AuthModal({ isOpen, onClose }) {
       ? 'https://collab-ide-ep5q.onrender.com' // Direct production API URL
       : 'http://localhost:5000';               // Direct local API URL
     
-    console.log('OAuth redirect URL:', `${baseURL}/api/auth/${provider}`);
+    // Log the redirect happening
+    console.log(`OAuth redirect to: ${baseURL}/api/auth/${provider}`);
     
-    // Redirect to the backend's OAuth initiation route
-    window.location.href = `${baseURL}/api/auth/${provider}`;
+    try {
+      // Save authentication state before redirecting
+      localStorage.setItem('auth_in_progress', 'true');
+      localStorage.setItem('auth_provider', provider);
+      localStorage.setItem('auth_timestamp', Date.now());
+      
+      // Redirect to the backend's OAuth initiation route
+      window.location.href = `${baseURL}/api/auth/${provider}`;
+    } catch (error) {
+      console.error('OAuth redirect error:', error);
+    }
   };
 
   if (!isOpen) return null;

@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 // Route imports
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
+const sharedCodeRoutes = require('./routes/sharedCodeRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/shared', sharedCodeRoutes);
 
 // Health check route
 app.get('/ping', (req, res) => {

@@ -1,10 +1,11 @@
-import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus, HelpCircle, LogIn, ChevronDown, FolderOpen, FileText } from 'lucide-react';
+import { Sun, Moon, Play, Code, Laptop, Save, MenuIcon, X, Users, LogOut, UserPlus, HelpCircle, LogIn, ChevronDown, FolderOpen, FileText, Share2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/authSlice';
 import UserAvatar from './UserAvatar';
-import FriendsMenu from './FriendsMenu'; // Import the FriendsMenu component
+import FriendsMenu from './FriendsMenu'; 
 import SaveFileButton from './SaveFileButton';
+import ShareModal from './ShareModal'; 
 
 function Navbar({ 
   language, 
@@ -28,10 +29,12 @@ function Navbar({
   currentFile,
   onSaveFile,
   onOpenFilesPanel,
-  onOpenRecentFiles
+  onOpenRecentFiles,
+  code // Add code prop
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false); // Add state for share modal
   const userMenuRef = useRef(null);
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector(state => state.auth);
@@ -72,6 +75,11 @@ function Navbar({
   const handleAuthClick = () => {
     setMenuOpen(false);
     onOpenAuthModal();
+  };
+
+  const handleShareClick = () => {
+    setIsShareModalOpen(true);
+    setMenuOpen(false); // Close mobile menu if open
   };
 
   useEffect(() => {}, [theme]);
@@ -273,6 +281,15 @@ function Navbar({
               </button>
             </>
           )}
+
+          <button
+            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+            title="Share code"
+            onClick={handleShareClick} 
+          >
+            <Share2 className="h-4 w-4" /> 
+            <span className="hidden md:block">Share</span>
+          </button>
           
           <button
             id="theme-toggle"
@@ -323,15 +340,25 @@ function Navbar({
           </button>
         </div>
 
-        <div className="md:hidden flex space-x-2">
+        <div className="md:hidden flex space-x-1">
           {/* Mobile Friends Menu - only show when authenticated */}
           {isAuthenticated && <FriendsMenu isMobile={true} />}
+          
+          {/* Mobile Share Button */}
+          <button
+            onClick={handleShareClick}
+            className="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+            aria-label="Share code"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
           
           {/* Mobile Auth Button */}
           {!isAuthenticated ? (
             <button
               onClick={handleAuthClick}
               className="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+              aria-label="Log in"
             >
               <LogIn className="w-5 h-5" />
             </button>
@@ -358,7 +385,7 @@ function Navbar({
           <button
             onClick={handleRunClick}
             disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
-            className={`md:hidden px-3 py-1.5 rounded-md flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${
               isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))
                 ? 'opacity-70 cursor-not-allowed'
                 : ''
@@ -499,6 +526,16 @@ function Navbar({
           </div>
         )}
 
+        <div className="px-2 pb-2">
+          <button
+            onClick={handleShareClick}
+            className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share Code
+          </button>
+        </div>
+
         <div className="flex justify-center px-2">
           <button
             onClick={() => {
@@ -512,6 +549,14 @@ function Navbar({
           </button>
         </div>
       </div>
+
+      {/* Share Modal */}
+      <ShareModal 
+        isOpen={isShareModalOpen} 
+        onClose={() => setIsShareModalOpen(false)}
+        code={code} // Use lowercase "code" prop from App.jsx, not the imported "Code" icon
+        language={language}
+      />
     </nav>
   );
 }
