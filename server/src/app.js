@@ -6,6 +6,8 @@ const dotenv = require('dotenv');
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const sharedCodeRoutes = require('./routes/sharedCodeRoutes');
+const emailRoutes = require('./routes/emailRoutes');
+const { checkClientVersion } = require('./middleware/versionMiddleware');
 
 // Load environment variables
 dotenv.config();
@@ -18,10 +20,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Add version checking middleware
+app.use(checkClientVersion);
+
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/shared', sharedCodeRoutes);
+app.use('/api/email', emailRoutes);
 
 // Health check route
 app.get('/ping', (req, res) => {

@@ -165,15 +165,26 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
       }
       
       if (shareableLink) {
-        // Here you would integrate with your backend email service
-        // For now, we'll just simulate success
-        toast.success(`Email sent to ${email}`);
-        setEmail('');
-        setMessage('');
+        // Send email using the API endpoint
+        const response = await api.email.sendCodeShareEmail({
+          email,
+          message,
+          code: typeof code === 'string' ? code : String(code || ''),
+          language: language?.id || 'text',
+          shareLink: shareableLink
+        });
+        
+        if (response.data.success) {
+          toast.success(`Email sent to ${email}`);
+          setEmail('');
+          setMessage('');
+        } else {
+          throw new Error(response.data.message || 'Failed to send email');
+        }
       }
     } catch (error) {
-      toast.error('Failed to send email');
       console.error('Email share error:', error);
+      toast.error(error.message || 'Failed to send email. Please try again.');
     } finally {
       setIsLoading(false);
     }

@@ -1,41 +1,45 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
-const SharedCodeSchema = new mongoose.Schema({
+// Define shared code schema
+const sharedCodeSchema = new mongoose.Schema({
   code: {
     type: String,
-    required: true
+    required: [true, 'Code is required']
   },
   language: {
     type: String,
-    required: true
+    required: [true, 'Programming language is required']
   },
   slug: {
     type: String,
     required: true,
-    unique: true,
-    index: true
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: false // Optional, user might not be logged in
-  },
-  expiresAt: {
-    type: Date,
-    required: true,
-    index: true
+    unique: true
   },
   viewCount: {
     type: Number,
     default: 0
   },
-  isPublic: {
-    type: Boolean,
-    default: true
+  expiresAt: {
+    type: Date,
+    required: true,
+    index: { expires: 0 } // TTL index - auto delete expired documents
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
-}, { timestamps: true });
+});
 
-// Automatically delete expired shared code documents
-SharedCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// Helper method to generate a slug
+sharedCodeSchema.statics.generateSlug = function() {
+  return crypto.randomBytes(4).toString('hex');
+};
 
-module.exports = mongoose.model('SharedCode', SharedCodeSchema);
+const SharedCode = mongoose.model('SharedCode', sharedCodeSchema);
+
+module.exports = SharedCode;

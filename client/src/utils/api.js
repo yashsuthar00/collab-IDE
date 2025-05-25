@@ -270,6 +270,11 @@ const api = {
     getSharedCode: (slug) => apiClient.get(`/api/shared/${slug}`),
     getUserSharedCodes: () => apiClient.get('/api/shared/user/all'),
     deleteSharedCode: (slug) => apiClient.delete(`/api/shared/${slug}`)
+  },
+  
+  // Add email functionality
+  email: {
+    sendCodeShareEmail: (data) => apiClient.post('/api/email/share-code', data)
   }
 };
 

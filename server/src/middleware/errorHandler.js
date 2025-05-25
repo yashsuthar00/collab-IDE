@@ -1,24 +1,25 @@
-const logger = require('../utils/logger');
-
 /**
  * Global error handler middleware
  */
-module.exports = function(err, req, res, next) {
-  // Log the error
-  logger.error('Unhandled error in request:', err);
+module.exports = (err, req, res, next) => {
+  // Log error details for debugging
+  console.error('Error:', err.stack);
   
-  // Check if headers already sent
-  if (res.headersSent) {
-    return next(err);
-  }
-  
-  // Set status code
+  // Determine HTTP status code
   const statusCode = err.statusCode || 500;
   
-  // Send error response
-  res.status(statusCode).json({
-    msg: err.message || 'Internal Server Error',
-    details: process.env.NODE_ENV === 'production' ? undefined : err.stack,
-    code: err.code || 'INTERNAL_ERROR'
-  });
+  // Create response object
+  const response = {
+    success: false,
+    message: err.message || 'Internal server error',
+  };
+  
+  // Include error details in development
+  if (process.env.NODE_ENV === 'development') {
+    response.error = err;
+    response.stack = err.stack;
+  }
+  
+  // Send response
+  res.status(statusCode).json(response);
 };
