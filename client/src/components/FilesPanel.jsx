@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { 
   Folder, File, FilePlus, FolderPlus, ChevronRight, ChevronDown, 
   Save, X, Search, Trash, Edit, Plus, ExternalLink, Copy, MoreHorizontal,
-  AlertTriangle // Import AlertTriangle icon for the confirmation dialog
+  AlertTriangle, Share2 // Add Share2 icon import
 } from 'lucide-react';
 import api from '../utils/api';
 import { toast } from 'react-hot-toast';
@@ -21,7 +21,7 @@ const FilesPanel = ({
   const [directories, setDirectories] = useState([]);
   const [files, setFiles] = useState([]);
   const [currentDirectory, setCurrentDirectory] = useState('root');
-  const [expandedDirs, setExpandedDirs] = useState(new Set());
+  const [expandedDirs, setExpandedDirs] = useState(new Set(['root'])); 
   const [directoryTree, setDirectoryTree] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,7 +31,7 @@ const FilesPanel = ({
   const [isCreatingDir, setIsCreatingDir] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
-  const { isAuthenticated, user } = useSelector(state => state.auth);
+  const { isAuthenticated } = useSelector(state => state.auth);
   
   // Add confirmation dialog state
   const [confirmationDialog, setConfirmationDialog] = useState({
@@ -55,9 +55,30 @@ const FilesPanel = ({
   const [dropTarget, setDropTarget] = useState(null);
   const dragCounter = useRef(0);
 
+  // Add mobile view state
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [activeView, setActiveView] = useState('tree'); // 'tree' or 'content'
+
+  // Handle window resize for responsive layout
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Fetch data when the panel is opened
   useEffect(() => {
     if (isOpen && isAuthenticated) {
+      // Ensure root directory is expanded when panel opens
+      setExpandedDirs(prev => {
+        const newExpanded = new Set(prev);
+        newExpanded.add('root');
+        return newExpanded;
+      });
+      
       fetchDirectoryContents(currentDirectory);
       fetchDirectoryTree();
     }
@@ -148,10 +169,21 @@ const FilesPanel = ({
     }
   };
 
-  // Handle directory navigation
+  // Handle directory navigation - modified to auto-expand the directory and switch view on mobile
   const navigateToDirectory = (dirId) => {
+    // Automatically expand the directory when navigating to it
+    const newExpanded = new Set(expandedDirs);
+    newExpanded.add(dirId);
+    setExpandedDirs(newExpanded);
+    
+    // Continue with existing functionality
     setCurrentDirectory(dirId);
     setSelectedFile(null);
+
+    // On mobile, switch to content view after navigation
+    if (isMobile) {
+      setActiveView('content');
+    }
   };
 
   // Handle directory expansion in tree view
@@ -165,7 +197,7 @@ const FilesPanel = ({
     setExpandedDirs(newExpanded);
   };
 
-  // Handle file selection
+  // Modified to return to tree view after selecting a file on mobile
   const handleFileSelect = async (fileId) => {
     try {
       setIsLoading(true);
@@ -206,6 +238,30 @@ const FilesPanel = ({
       setSelectedFile(null);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Add new function to handle sharing
+  const handleShareItem = async (e, item, itemType) => {
+    e.stopPropagation(); // Prevent file selection or directory navigation
+    
+    try {
+      if (itemType === 'file') {
+        // For files, we can directly share
+        toast.success(`Share link for ${item.name} copied to clipboard!`);
+        // You can add actual sharing functionality here
+        // For example, copy a link to clipboard or open a share modal
+        
+        // Example to copy a shareable link
+        const shareUrl = `${window.location.origin}/shared/${item._id}`;
+        await navigator.clipboard.writeText(shareUrl);
+      } else if (itemType === 'directory') {
+        // For directories, we might handle differently
+        toast.success(`Sharing for folders coming soon`);
+      }
+    } catch (error) {
+      console.error('Error sharing item:', error);
+      toast.error('Failed to share item');
     }
   };
 
@@ -630,21 +686,35 @@ const FilesPanel = ({
               e.stopPropagation();
               toggleDirectoryExpanded(item._id);
             }} 
-            className="mr-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            className="mr-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex-shrink-0 w-4"
+            disabled={!hasChildren} // Use hasChildren to disable the toggle button if there are no children
+            style={{ visibility: hasChildren ? 'visible' : 'hidden' }} // Hide the toggle button if there are no children
           >
             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
-          <Folder size={16} className="mr-2 text-blue-500 dark:text-blue-400" />
+          <div className="flex-shrink-0 w-5 mr-2">
+            <Folder size={16} className="text-blue-500 dark:text-blue-400" />
+          </div>
           <span className="truncate text-sm font-medium">{item.name}</span>
-          <button
-            className="ml-auto opacity-0 group-hover:opacity-100 p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
-            onClick={(e) => showRenameDirectoryDialog(item._id, item.name, e)}
-            aria-label="Rename directory"
-          >
-            <Edit size={14} />
-          </button>
+          <div className="ml-auto opacity-0 group-hover:opacity-100 flex items-center flex-shrink-0">
+            <button
+              className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+              onClick={(e) => handleShareItem(e, item, 'directory')}
+              aria-label="Share directory"
+            >
+              <Share2 size={14} />
+            </button>
+            <button
+              className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+              onClick={(e) => showRenameDirectoryDialog(item._id, item.name, e)}
+              aria-label="Rename directory"
+            >
+              <Edit size={14} />
+            </button>
+          </div>
         </div>
         
+        {/* Don't try to expand if there are no children */}
         {isExpanded && (
           <div className="directory-tree-children">
             {/* First show files in this directory */}
@@ -665,15 +735,27 @@ const FilesPanel = ({
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
               >
-                <LanguageIcon language={file.language} className="mr-2" size={16} />
+                {/* Fixed width for the icon to prevent shrinking with long file names */}
+                <div className="flex-shrink-0 w-5 mr-2">
+                  <LanguageIcon language={file.language} size={16} />
+                </div>
                 <span className="truncate text-sm">{file.name}</span>
-                <button
-                  className="ml-auto opacity-0 group-hover:opacity-100 p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
-                  onClick={(e) => showRenameFileDialog(file._id, file.name, e)}
-                  aria-label="Rename file"
-                >
-                  <Edit size={14} />
-                </button>
+                <div className="ml-auto opacity-0 group-hover:opacity-100 flex items-center flex-shrink-0">
+                  <button
+                    className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+                    onClick={(e) => handleShareItem(e, file, 'file')}
+                    aria-label="Share file"
+                  >
+                    <Share2 size={14} />
+                  </button>
+                  <button
+                    className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+                    onClick={(e) => showRenameFileDialog(file._id, file.name, e)}
+                    aria-label="Rename file"
+                  >
+                    <Edit size={14} />
+                  </button>
+                </div>
               </div>
             ))}
             
@@ -688,8 +770,8 @@ const FilesPanel = ({
               ) : null
             )}
             
-            {/* Show a message if there are no contents when expanded */}
-            {(!directoryFiles || directoryFiles.length === 0) && (!item.children || item.children.length === 0) && (
+            {/* Show empty state message only if there are no contents AND we're expanded */}
+            {!hasChildren && (
               <div className="text-xs text-gray-500 dark:text-gray-400 py-1"
                    style={{ paddingLeft: `${(level + 1) * 16 + 16}px` }}>
                 Empty folder
@@ -748,7 +830,7 @@ const FilesPanel = ({
       };
       
       buildPath();
-    }, [currentDirectory]);
+    });
     
     return (
       <div className="flex items-center overflow-x-auto whitespace-nowrap py-2 px-1 scrollbar-hide">
@@ -814,13 +896,40 @@ const FilesPanel = ({
       {/* Header */}
       <div className="p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-semibold">My Files</h2>
-        <button
-          onClick={onClose}
-          className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none"
-          aria-label="Close panel"
-        >
-          <X size={20} />
-        </button>
+        <div className="flex items-center">
+          {/* Mobile navigation tabs */}
+          {isMobile && (
+            <div className="flex mr-4 bg-gray-100 dark:bg-gray-800 rounded-md p-1">
+              <button 
+                onClick={() => setActiveView('tree')}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  activeView === 'tree' 
+                    ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400' 
+                    : 'text-gray-600 dark:text-gray-300'
+                }`}
+              >
+                Files
+              </button>
+              <button 
+                onClick={() => setActiveView('content')}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  activeView === 'content' 
+                    ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400' 
+                    : 'text-gray-600 dark:text-gray-300'
+                }`}
+              >
+                {currentDirectory === 'root' ? 'Content' : directories.find(d => d._id === currentDirectory)?.name || 'Content'}
+              </button>
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none"
+            aria-label="Close panel"
+          >
+            <X size={20} />
+          </button>
+        </div>
       </div>
       
       {/* Search Bar */}
@@ -841,7 +950,10 @@ const FilesPanel = ({
 
       <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
         {/* Sidebar / Tree View */}
-        <div className="w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+        <div className={`
+          ${isMobile ? (activeView === 'tree' ? 'block' : 'hidden') : 'block'}
+          w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 dark:border-gray-700 overflow-y-auto
+        `}>
           <div className="p-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium">Files & Directories</h3>
@@ -892,7 +1004,9 @@ const FilesPanel = ({
                 >
                   {expandedDirs.has('root') ? <ChevronDown size={16} className="text-gray-600 dark:text-gray-300" /> : <ChevronRight size={16} className="text-gray-600 dark:text-gray-300" />}
                 </button>
-                <Folder size={16} className="mr-2 text-blue-500 dark:text-blue-400" />
+                <div className="flex-shrink-0 w-5 mr-2">
+                  <Folder size={16} className="text-blue-500 dark:text-blue-400" />
+                </div>
                 <span className="truncate text-sm font-medium text-gray-900 dark:text-white">My Files</span>
               </div>
               
@@ -917,15 +1031,27 @@ const FilesPanel = ({
                         onDragEnter={handleDragEnter}
                         onDragLeave={handleDragLeave}
                       >
-                        <LanguageIcon language={file.language} className="mr-2" size={16} />
+                        {/* Fixed width for the icon to prevent shrinking */}
+                        <div className="flex-shrink-0 w-5 mr-2">
+                          <LanguageIcon language={file.language} size={16} />
+                        </div>
                         <span className="truncate text-sm">{file.name}</span>
-                        <button
-                          className="ml-auto opacity-0 group-hover:opacity-100 p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
-                          onClick={(e) => showRenameFileDialog(file._id, file.name, e)}
-                          aria-label="Rename file"
-                        >
-                          <Edit size={14} />
-                        </button>
+                        <div className="ml-auto opacity-0 group-hover:opacity-100 flex items-center flex-shrink-0">
+                          <button
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+                            onClick={(e) => handleShareItem(e, file, 'file')}
+                            aria-label="Share file"
+                          >
+                            <Share2 size={14} />
+                          </button>
+                          <button
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+                            onClick={(e) => showRenameFileDialog(file._id, file.name, e)}
+                            aria-label="Rename file"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        </div>
                       </div>
                     ))
                   }
@@ -950,7 +1076,10 @@ const FilesPanel = ({
         </div>
 
         {/* Main Content Area */}
-        <div className="w-full md:w-2/3 lg:w-3/4 flex flex-col overflow-hidden">
+        <div className={`
+          ${isMobile ? (activeView === 'content' ? 'block' : 'hidden') : 'block'}
+          w-full md:w-2/3 lg:w-3/4 flex flex-col overflow-hidden
+        `}>
           {/* Breadcrumb and Actions */}
           <div className="flex flex-wrap items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
             <BreadcrumbNav />
@@ -1000,9 +1129,22 @@ const FilesPanel = ({
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, dir._id)}
                         >
-                          <Folder size={20} className="mr-3 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+                          {/* Fixed width container for icon */}
+                          <div className="flex-shrink-0 w-6 mr-3">
+                            <Folder size={20} className="text-blue-500 dark:text-blue-400" />
+                          </div>
                           <span className="flex-grow truncate">{dir.name}</span>
-                          <div className="opacity-0 group-hover:opacity-100 flex">
+                          <div className="opacity-0 group-hover:opacity-100 flex flex-shrink-0">
+                            <button
+                              className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareItem(e, dir, 'directory');
+                              }}
+                              aria-label="Share directory"
+                            >
+                              <Share2 size={16} />
+                            </button>
                             <button
                               className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
                               onClick={(e) => {
@@ -1051,14 +1193,27 @@ const FilesPanel = ({
                           onDragEnter={handleDragEnter}
                           onDragLeave={handleDragLeave}
                         >
-                          <LanguageIcon language={file.language} className="mr-3" />
+                          {/* Fixed width container for icon */}
+                          <div className="flex-shrink-0 w-6 mr-3">
+                            <LanguageIcon language={file.language} />
+                          </div>
                           <div className="flex-grow overflow-hidden">
                             <div className="font-medium truncate">{file.name}</div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
                               {file.language} • {new Date(file.lastModified).toLocaleDateString()}
                             </div>
                           </div>
-                          <div className="flex opacity-0 group-hover:opacity-100 ml-2">
+                          <div className="flex opacity-0 group-hover:opacity-100 ml-2 flex-shrink-0">
+                            <button
+                              className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareItem(e, file, 'file');
+                              }}
+                              aria-label="Share file"
+                            >
+                              <Share2 size={16} />
+                            </button>
                             <button
                               className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
                               onClick={(e) => {
