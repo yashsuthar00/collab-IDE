@@ -48,6 +48,14 @@ exports.protect = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
+    // Provide more specific error messages based on the error type
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Your session has expired. Please log in again.',
+        tokenExpired: true
+      });
+    }
     return res.status(401).json({
       success: false,
       message: 'Not authorized to access this resource'

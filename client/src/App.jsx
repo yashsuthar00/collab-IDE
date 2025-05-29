@@ -870,6 +870,22 @@ function AppContent() {
 }
 
 function App() {
+  // Listen for auth expiration events
+  useEffect(() => {
+    const handleAuthExpired = (event) => {
+      toast.error(event.detail.message || "Your session has expired. Please log in again.", {
+        duration: 5000,
+        position: 'top-right'
+      });
+    };
+    
+    window.addEventListener('auth-expired', handleAuthExpired);
+    
+    return () => {
+      window.removeEventListener('auth-expired', handleAuthExpired);
+    };
+  }, []);
+
   return (
     <Provider store={store}>
       <FriendsProvider>

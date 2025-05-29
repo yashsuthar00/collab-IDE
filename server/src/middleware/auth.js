@@ -34,6 +34,12 @@ module.exports = async function(req, res, next) {
     next();
   } catch (err) {
     console.error('Auth middleware error:', err);
-    res.status(401).json({ msg: 'Token is not valid' });
+    // Provide more specific error messages based on the error type
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ msg: 'Token has expired', tokenExpired: true });
+    } else if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ msg: 'Token is not valid' });
+    }
+    res.status(401).json({ msg: 'Authentication failed' });
   }
 };

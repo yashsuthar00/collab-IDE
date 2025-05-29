@@ -2,6 +2,8 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 import { getFromStorage } from './storage';
+import { store } from '../store';
+import { logout } from '../store/authSlice';
 
 // Determine base URL based on environment with direct URLs
 const getBaseUrl = () => {
@@ -52,6 +54,21 @@ apiClient.interceptors.response.use(
       details: error.response?.data || {},
     };
     
+    // Handle auth errors (401 Unauthorized)
+    if (error.response?.status === 401) {
+      console.warn('Authentication error:', error.response.data);
+      
+      // Check if this might be a token expiration
+      const isAuthError = error.response.data?.msg === 'Token is not valid' || 
+                          error.response.data?.message === 'Not authorized to access this resource' ||
+                          error.response.data?.message?.includes('expired');
+      
+      if (isAuthError) {
+        console.log('Auth token expired or invalid, logging out user');
+        handleTokenExpiration();
+      }
+    }
+    
     // Special handling for 401 errors on file access
     if (error.response?.status === 401 && 
         (error.config?.url?.includes('/api/codefiles/') || 
@@ -64,6 +81,22 @@ apiClient.interceptors.response.use(
     return Promise.reject(errorResponse);
   }
 );
+
+// Function to handle token expiration
+export const handleTokenExpiration = () => {
+  // Clear auth data
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  
+  // Dispatch logout action to update Redux state
+  store.dispatch(logout());
+  
+  // Optionally, show a message to the user
+  window.dispatchEvent(new CustomEvent('auth-expired', { 
+    detail: { message: 'Your session has expired. Please log in again.' } 
+  }));
+  
+};
 
 // API endpoints
 const api = {
