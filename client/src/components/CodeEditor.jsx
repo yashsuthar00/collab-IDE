@@ -1,5 +1,5 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
-import Editor, { useMonaco } from '@monaco-editor/react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import Editor from '@monaco-editor/react';
 import SpecialCharactersBar from './SpecialCharactersBar';
 import { getSocket, shouldThrottleSync, syncCompleted } from '../utils/api';
 import { useRoom } from '../contexts/RoomContext';
@@ -69,37 +69,145 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     return userColorMap.get(userId);
   }, []);
   
+  // Add dynamic CSS for user cursors
+  const addCursorStyle = useCallback((userId, color, userName) => {
+    const styleId = `cursor-style-${userId}`;
+    let styleEl = document.getElementById(styleId);
+    
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    
+    styleEl.innerHTML = `
+      .remote-cursor-${userId} {
+        background-color: ${color};
+        width: 2px !important;
+        height: 18px !important;
+        position: absolute;
+        z-index: 10000;
+      }
+      .remote-cursor-line-${userId} {
+        position: relative;
+      }
+      .remote-cursor-name-${userId}::before {
+        content: "${userName}";
+        position: absolute;
+        right: 100%;
+        opacity: 0.95;
+        background-color: ${color};
+        color: white;
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 2px;
+        white-space: nowrap;
+        z-index: 10001;
+        pointer-events: none;
+        text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
+      }
+      .remote-cursor-name-text-${userId} {
+        background-color: ${color};
+        color: white;
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 2px;
+        white-space: nowrap;
+        position: absolute;
+        top: -20px;
+        z-index: 10001;
+        text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+        font-weight: 500;
+      }
+    `;
+  }, []);
+  
+  // Add dynamic CSS for user selections
+  const addSelectionStyle = useCallback((userId, color) => {
+    const styleId = `selection-style-${userId}`;
+    let styleEl = document.getElementById(styleId);
+    
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    
+    styleEl.innerHTML = `
+      .remote-selection-${userId} {
+        background-color: ${color}33;
+        border: 1px solid ${color};
+        border-radius: 2px;
+        z-index: 9999;
+      }
+    `;
+  }, []);
+
   // Debounced function to emit cursor position
-  const emitCursorPosition = useCallback(
-    debounce((position) => {
+  const emitCursorPosition = useCallback((position) => {
+    const debouncedEmit = debounce((pos) => {
       if (isInRoom && !readOnly && currentUser?.id) {
         const socket = getSocket();
         socket.emit('cursor-position', {
           roomId,
           userId: currentUser.id,
-          position,
+          position: pos,
           userName: currentUser.name
         });
       }
-    }, 50),
-    [isInRoom, roomId, currentUser?.id, currentUser?.name, readOnly]
-  );
+    }, 50);
+    
+    debouncedEmit(position);
+  }, [isInRoom, roomId, currentUser, readOnly]);
   
   // Debounced function to emit selection changes
-  const emitSelectionChange = useCallback(
-    debounce((selection) => {
+  const emitSelectionChange = useCallback((selection) => {
+    const debouncedEmit = debounce((sel) => {
       if (isInRoom && !readOnly && currentUser?.id) {
         const socket = getSocket();
         socket.emit('selection-change', {
           roomId,
           userId: currentUser.id,
-          selection,
+          selection: sel,
           userName: currentUser.name
         });
       }
-    }, 50),
-    [isInRoom, roomId, currentUser?.id, currentUser?.name, readOnly]
-  );
+    }, 50);
+    
+    debouncedEmit(selection);
+  }, [isInRoom, roomId, currentUser, readOnly]);
+
+  // Send buffered operations - completely rewritten for true batching
+  const sendBufferedOps = useCallback(() => {
+    if (!isInRoom || !roomId || !currentUser?.id || bufferRef.current.length === 0) return;
+    
+    logger.debug(`Sending batch of ${bufferRef.current.length} operations`);
+    
+    const ops = bufferRef.current.slice();
+    bufferRef.current = []; // Clear buffer immediately
+    
+    // Update the last sync timestamp
+    lastSyncTimeRef.current = Date.now();
+    
+    const socket = getSocket();
+    if (!socket || !socket.connected) {
+      logger.error("Socket not connected, can't send operations");
+      // Re-add operations to buffer
+      bufferRef.current = [...ops, ...bufferRef.current];
+      return;
+    }
+    
+    // Send as a batch
+    socket.emit('ot-operations', {
+      roomId,
+      userId: currentUser?.id,
+      operations: ops,
+      version: currentVersionRef.current,
+      clientId: CLIENT_ID,
+      isBatch: true // Flag to indicate this is a batch update
+    });
+  }, [isInRoom, roomId, currentUser]);
 
   // Update remote cursor
   const updateRemoteCursor = useCallback((userId, position, userName) => {
@@ -167,7 +275,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
 
     // Update state to trigger re-render if needed
     setRemoteUserCursors(new Map(cursorsRef.current));
-  }, [getUserColor]);
+  }, [getUserColor, addCursorStyle]);
 
   // Update remote selection
   const updateRemoteSelection = useCallback((userId, selection, userName) => {
@@ -246,190 +354,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
 
     // Update state to trigger re-render if needed
     setRemoteUserCursors(new Map(cursorsRef.current));
-  }, [getUserColor]);
-
-  // Add dynamic CSS for user cursors
-  const addCursorStyle = useCallback((userId, color, userName) => {
-    const styleId = `cursor-style-${userId}`;
-    let styleEl = document.getElementById(styleId);
-    
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = styleId;
-      document.head.appendChild(styleEl);
-    }
-    
-    styleEl.innerHTML = `
-      .remote-cursor-${userId} {
-        background-color: ${color};
-        width: 2px !important;
-        height: 18px !important;
-        position: absolute;
-        z-index: 10000;
-      }
-      .remote-cursor-line-${userId} {
-        position: relative;
-      }
-      .remote-cursor-name-${userId}::before {
-        content: "${userName}";
-        position: absolute;
-        right: 100%;
-        opacity: 0.95;
-        background-color: ${color};
-        color: white;
-        font-size: 10px;
-        padding: 2px 4px;
-        border-radius: 2px;
-        white-space: nowrap;
-        z-index: 10001;
-        pointer-events: none;
-        text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-        font-weight: 500;
-      }
-      .remote-cursor-name-text-${userId} {
-        background-color: ${color};
-        color: white;
-        font-size: 10px;
-        padding: 2px 4px;
-        border-radius: 2px;
-        white-space: nowrap;
-        position: absolute;
-        top: -20px;
-        z-index: 10001;
-        text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-        font-weight: 500;
-      }
-    `;
-  }, []);
-  
-  // Add dynamic CSS for user selections
-  const addSelectionStyle = useCallback((userId, color) => {
-    const styleId = `selection-style-${userId}`;
-    let styleEl = document.getElementById(styleId);
-    
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = styleId;
-      document.head.appendChild(styleEl);
-    }
-    
-    styleEl.innerHTML = `
-      .remote-selection-${userId} {
-        background-color: ${color}33;
-        border: 1px solid ${color};
-        border-radius: 2px;
-        z-index: 9999;
-      }
-    `;
-  }, []);
-
-  // Handle local editing operations with OT - improved batching approach
-  const handleDocumentChange = useCallback((event) => {
-    if (readOnly || isApplyingRemoteOpsRef.current || suppressEventsRef.current) return;
-    
-    const currentPos = editorRef.current?.getPosition();
-    const currentSelection = editorRef.current?.getSelection();
-    
-    // Save cursor position and selection for restoration after applying operations
-    if (currentPos) {
-      selectionRef.current = {
-        position: currentPos,
-        selection: currentSelection
-      };
-    }
-    
-    // Generate operations from Monaco change event
-    const operations = monacoChangeToOp(event, codeRef.current);
-    if (operations.length === 0) return;
-    
-    // Update the reference to current code content
-    codeRef.current = editorRef.current.getValue();
-    
-    // Add client ID to each operation for conflict resolution
-    const opsWithClientId = operations.map(op => ({
-      ...op,
-      clientId: CLIENT_ID,
-      timestamp: Date.now()
-    }));
-    
-    // Add new operations to buffer
-    bufferRef.current = [...bufferRef.current, ...opsWithClientId];
-    
-    // Mark that the user is typing - this is key for preventing interruption
-    isTypingRef.current = true;
-    
-    // Clear any existing typing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    // Set typing timeout to detect when user stops typing
-    typingTimeoutRef.current = setTimeout(() => {
-      isTypingRef.current = false;
-      
-      // Send batch update when user stops typing
-      if (bufferRef.current.length > 0) {
-        sendBufferedOps();
-      }
-    }, 1000); // 1 second idle time to consider typing stopped
-    
-    // If this is the first operation in a batch, set a maximum timeout
-    // to ensure updates are sent even during continuous typing
-    if (bufferRef.current.length === opsWithClientId.length) {
-      if (batchUpdateTimeoutRef.current) {
-        clearTimeout(batchUpdateTimeoutRef.current);
-      }
-      
-      batchUpdateTimeoutRef.current = setTimeout(() => {
-        if (bufferRef.current.length > 0) {
-          sendBufferedOps();
-        }
-        batchUpdateTimeoutRef.current = null;
-      }, 2000); // Maximum 2 seconds between sends
-    }
-    
-    // Store operations as pending until acknowledged
-    pendingOpsRef.current.push({
-      operations: opsWithClientId,
-      version: currentVersionRef.current
-    });
-    
-    // CRITICAL: Update local state without sending to server yet
-    // This ensures the editor reflects changes immediately for the local user
-    setCode(codeRef.current);
-    
-  }, [setCode, readOnly]);
-  
-  // Send buffered operations - completely rewritten for true batching
-  const sendBufferedOps = useCallback(() => {
-    if (!isInRoom || !roomId || !currentUser?.id || bufferRef.current.length === 0) return;
-    
-    logger.debug(`Sending batch of ${bufferRef.current.length} operations`);
-    
-    const ops = bufferRef.current.slice();
-    bufferRef.current = []; // Clear buffer immediately
-    
-    // Update the last sync timestamp
-    lastSyncTimeRef.current = Date.now();
-    
-    const socket = getSocket();
-    if (!socket || !socket.connected) {
-      logger.error("Socket not connected, can't send operations");
-      // Re-add operations to buffer
-      bufferRef.current = [...ops, ...bufferRef.current];
-      return;
-    }
-    
-    // Send as a batch
-    socket.emit('ot-operations', {
-      roomId,
-      userId: currentUser?.id,
-      operations: ops,
-      version: currentVersionRef.current,
-      clientId: CLIENT_ID,
-      isBatch: true // Flag to indicate this is a batch update
-    });
-  }, [isInRoom, roomId, currentUser?.id]);
+  }, [getUserColor, addCursorStyle, addSelectionStyle]);
 
   // Apply remote operations - improved to handle batched ops and cancelations
   const applyRemoteOperations = useCallback((operations, isBatch = false) => {
@@ -586,7 +511,162 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       }
     }
   }, [setCode]);
-  
+
+  // Handle local editing operations with OT - improved batching approach
+  const handleDocumentChange = useCallback((event) => {
+    if (readOnly || isApplyingRemoteOpsRef.current || suppressEventsRef.current) return;
+    
+    const currentPos = editorRef.current?.getPosition();
+    const currentSelection = editorRef.current?.getSelection();
+    
+    // Save cursor position and selection for restoration after applying operations
+    if (currentPos) {
+      selectionRef.current = {
+        position: currentPos,
+        selection: currentSelection
+      };
+    }
+    
+    // Generate operations from Monaco change event
+    const operations = monacoChangeToOp(event, codeRef.current);
+    if (operations.length === 0) return;
+    
+    // Update the reference to current code content
+    codeRef.current = editorRef.current.getValue();
+    
+    // Add client ID to each operation for conflict resolution
+    const opsWithClientId = operations.map(op => ({
+      ...op,
+      clientId: CLIENT_ID,
+      timestamp: Date.now()
+    }));
+    
+    // Add new operations to buffer
+    bufferRef.current = [...bufferRef.current, ...opsWithClientId];
+    
+    // Mark that the user is typing - this is key for preventing interruption
+    isTypingRef.current = true;
+    
+    // Clear any existing typing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set typing timeout to detect when user stops typing
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      
+      // Send batch update when user stops typing
+      if (bufferRef.current.length > 0) {
+        sendBufferedOps();
+      }
+    }, 1000); // 1 second idle time to consider typing stopped
+    
+    // If this is the first operation in a batch, set a maximum timeout
+    // to ensure updates are sent even during continuous typing
+    if (bufferRef.current.length === opsWithClientId.length) {
+      if (batchUpdateTimeoutRef.current) {
+        clearTimeout(batchUpdateTimeoutRef.current);
+      }
+      
+      batchUpdateTimeoutRef.current = setTimeout(() => {
+        if (bufferRef.current.length > 0) {
+          sendBufferedOps();
+        }
+        batchUpdateTimeoutRef.current = null;
+      }, 2000); // Maximum 2 seconds between sends
+    }
+    
+    // Store operations as pending until acknowledged
+    pendingOpsRef.current.push({
+      operations: opsWithClientId,
+      version: currentVersionRef.current
+    });
+    
+    // CRITICAL: Update local state without sending to server yet
+    // This ensures the editor reflects changes immediately for the local user
+    setCode(codeRef.current);
+    
+  }, [setCode, readOnly, sendBufferedOps]);
+
+  // Handle code change (simplified since most logic moved to handleDocumentChange)
+  const handleCodeChange = useCallback((newCode) => {
+    // This is now just a pass-through function since the real logic
+    // happens in the model's onDidChangeContent event handler
+    if (newCode !== undefined && newCode !== null && !isApplyingRemoteOpsRef.current) {
+      setCode(newCode);
+    }
+  }, [setCode]);
+
+  // Editor mount handler - enhanced to handle batching and interruptions better
+  const handleEditorDidMount = useCallback((editor, monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+    
+    // Set editor options for better appearance
+    monaco.editor.defineTheme('customDark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#1a1b26',
+      }
+    });
+    
+    if (theme === 'dark') {
+      monaco.editor.setTheme('customDark');
+    }
+    
+    // Add keybinding for running code
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      onRunCode();
+    });
+    
+    // Initialize code reference
+    codeRef.current = editor.getValue();
+    
+    // Listen for model content changes for OT
+    const model = editor.getModel();
+    model.onDidChangeContent(handleDocumentChange);
+    
+    // Add cursor position change listener for collaborative editing
+    editor.onDidChangeCursorPosition((e) => {
+      if (isInRoom && !readOnly && currentUser?.id && !isApplyingRemoteOpsRef.current) {
+        emitCursorPosition(e.position);
+      }
+    });
+    
+    // Add selection change listener for collaborative editing
+    editor.onDidChangeCursorSelection((e) => {
+      if (isInRoom && !readOnly && currentUser?.id && !isApplyingRemoteOpsRef.current) {
+        emitSelectionChange(e.selection);
+      }
+    });
+
+    // Focus editor on mount for desktop, but not for mobile
+    if (window.innerWidth >= 768) {
+      editor.focus();
+    }
+
+    // Track focus state and handle buffer sending on blur
+    editor.onDidFocusEditorText(() => {
+      // Focus handling if needed in the future
+    });
+    
+    editor.onDidBlurEditorText(() => {
+      // When focus is lost, consider typing as stopped and send any pending updates
+      isTypingRef.current = false;
+      if (bufferRef.current.length > 0) {
+        sendBufferedOps();
+      }
+    });
+    
+    // Set read-only state
+    editor.updateOptions({ readOnly });
+
+    logger.info("Editor mounted successfully, OT enabled");
+  }, [theme, onRunCode, handleDocumentChange, emitCursorPosition, emitSelectionChange, sendBufferedOps, isInRoom, readOnly, currentUser]);
+
   // CRITICAL FIX: Much more efficient socket event handling for OT
   useEffect(() => {
     if (!isInRoom || !editorRef.current) return;
@@ -747,6 +827,19 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       currentVersionRef.current = data.version;
     });
     
+    // Register cursor update handlers
+    socket.on('cursor-update', (data) => {
+      if (data.userId !== currentUser?.id) {
+        updateRemoteCursor(data.userId, data.position, data.userName);
+      }
+    });
+    
+    socket.on('selection-update', (data) => {
+      if (data.userId !== currentUser?.id) {
+        updateRemoteSelection(data.userId, data.selection, data.userName);
+      }
+    });
+    
     // Clean up on unmount
     return () => {
       socket.off('ot-ack', handleOpAck);
@@ -754,8 +847,10 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       socket.off('ot-sync', handleSync);
       socket.off('ot-error');
       socket.off('ot-batch-operations');
+      socket.off('cursor-update');
+      socket.off('selection-update');
     };
-  }, [isInRoom, roomId, applyRemoteOperations, setCode]);
+  }, [isInRoom, roomId, applyRemoteOperations, setCode, currentUser, updateRemoteCursor, updateRemoteSelection]);
 
   // Monitor for code prop changes from outside
   useEffect(() => {
@@ -777,84 +872,6 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       }
     }
   }, [code]);
-
-  // Editor mount handler - enhanced to handle batching and interruptions better
-  const handleEditorDidMount = useCallback((editor, monaco) => {
-    editorRef.current = editor;
-    monacoRef.current = monaco;
-    
-    // Set editor options for better appearance
-    monaco.editor.defineTheme('customDark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [],
-      colors: {
-        'editor.background': '#1a1b26',
-      }
-    });
-    
-    if (theme === 'dark') {
-      monaco.editor.setTheme('customDark');
-    }
-    
-    // Add keybinding for running code
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-      onRunCode();
-    });
-    
-    // Initialize code reference
-    codeRef.current = editor.getValue();
-    
-    // Listen for model content changes for OT
-    const model = editor.getModel();
-    model.onDidChangeContent(handleDocumentChange);
-    
-    // Add cursor position change listener for collaborative editing
-    editor.onDidChangeCursorPosition((e) => {
-      if (isInRoom && !readOnly && currentUser?.id && !isApplyingRemoteOpsRef.current) {
-        emitCursorPosition(e.position);
-      }
-    });
-    
-    // Add selection change listener for collaborative editing
-    editor.onDidChangeCursorSelection((e) => {
-      if (isInRoom && !readOnly && currentUser?.id && !isApplyingRemoteOpsRef.current) {
-        emitSelectionChange(e.selection);
-      }
-    });
-
-    // Focus editor on mount for desktop, but not for mobile
-    if (window.innerWidth >= 768) {
-      editor.focus();
-    }
-
-    // Track focus state
-    // Track focus state and handle buffer sending on blur
-    editor.onDidFocusEditorText(() => {
-      // Focus handling if needed in the future
-    });
-    
-    editor.onDidBlurEditorText(() => {
-      // When focus is lost, consider typing as stopped and send any pending updates
-      isTypingRef.current = false;
-      if (bufferRef.current.length > 0) {
-        sendBufferedOps();
-      }
-    });
-    // Set read-only state
-    editor.updateOptions({ readOnly });
-
-    logger.info("Editor mounted successfully, OT enabled");
-  }, [theme, onRunCode, handleDocumentChange, emitCursorPosition, emitSelectionChange, sendBufferedOps, isInRoom, readOnly, currentUser?.id]);
-
-  // Handle code change (simplified since most logic moved to handleDocumentChange)
-  const handleCodeChange = useCallback((newCode) => {
-    // This is now just a pass-through function since the real logic
-    // happens in the model's onDidChangeContent event handler
-    if (newCode !== undefined && newCode !== null && !isApplyingRemoteOpsRef.current) {
-      setCode(newCode);
-    }
-  }, [setCode]);
 
   // Force the special characters bar to show on mobile and tablet
   useEffect(() => {
@@ -947,18 +964,23 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
 
   // Flag unmounting to prevent state updates
   useEffect(() => {
+    // Capture current timeout values
+    const typingTimeout = typingTimeoutRef.current;
+    const bufferTimeout = bufferTimeoutRef.current;
+    const batchUpdateTimeout = batchUpdateTimeoutRef.current;
+    
     return () => {
       unmountingRef.current = true;
       
-      // Clear any pending timeouts
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+      // Clear any pending timeouts using captured values
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
       }
-      if (bufferTimeoutRef.current) {
-        clearTimeout(bufferTimeoutRef.current);
+      if (bufferTimeout) {
+        clearTimeout(bufferTimeout);
       }
-      if (batchUpdateTimeoutRef.current) {
-        clearTimeout(batchUpdateTimeoutRef.current);
+      if (batchUpdateTimeout) {
+        clearTimeout(batchUpdateTimeout);
       }
       
       // Remove cursor style elements

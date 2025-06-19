@@ -80,10 +80,20 @@ function CollaborativeApp() {
   
   const [code, setCode] = useState('');
   const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-    document.body.dataset.theme = savedTheme;
-    return savedTheme;
+    // First check localStorage for saved preference
+    const savedTheme = localStorage.getItem('theme');
+    
+    if (savedTheme) {
+      // Use saved preference
+      return savedTheme;
+    } else {
+      // Default to system preference
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const initialTheme = prefersDark ? 'dark' : 'light';
+      // Save this preference
+      localStorage.setItem('theme', initialTheme);
+      return initialTheme;
+    }
   });
   const [output, setOutput] = useState(null);
   const [input, setInput] = useState('');
@@ -172,6 +182,30 @@ function CollaborativeApp() {
       metaThemeColor.setAttribute('content', theme === 'dark' ? '#1a1b26' : '#ffffff');
     }
   }, [theme]);
+
+  // Also listen for system theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const handleSystemThemeChange = (e) => {
+      // Only update if user hasn't explicitly set a preference
+      if (!localStorage.getItem('theme') || localStorage.getItem('theme') === 'system') {
+        const newTheme = e.matches ? 'dark' : 'light';
+        setTheme(newTheme);
+        document.documentElement.classList.toggle('dark', e.matches);
+        document.body.dataset.theme = newTheme;
+        localStorage.setItem('theme', newTheme);
+      }
+    };
+    
+    // Add event listener for theme changes
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+    
+    // Cleanup
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (isInRoom && roomId) {
@@ -521,48 +555,61 @@ function CollaborativeApp() {
     
     // Determine appropriate tour based on context
     let tour;
-    if (isInRoom) {
-      tour = createCollaborationTour();
-    } else if (activeTab === 'input') {
-      tour = createInputPanelTour();
-    } else {
-      tour = createMainTour();
-    }
-    
-    // Add global click handler to close tour when clicking outside
-    const handleGlobalClick = (event) => {
-      // Check if click is on the overlay (outside the popover)
-      if (event.target.classList.contains('driver-overlay')) {
-        tour.destroy();
+    try {
+      if (isInRoom) {
+        tour = createCollaborationTour();
+      } else if (activeTab === 'input') {
+        tour = createInputPanelTour();
+      } else {
+        tour = createMainTour();
+      }
+      
+      // Validate that we have a tour object
+      if (!tour) {
+        console.error('Failed to create tour');
+        return;
+      }
+      
+      // Add global click handler to close tour when clicking outside
+      const handleGlobalClick = (event) => {
+        // Check if click is on the overlay (outside the popover)
+        if (event.target.classList.contains('driver-overlay')) {
+          tour.destroy();
+          document.removeEventListener('click', handleGlobalClick);
+        }
+      };
+      
+      // Add event listener after a small delay to prevent immediate closing
+      setTimeout(() => {
+        document.addEventListener('click', handleGlobalClick);
+      }, 500);
+      
+      // Store cleanup function directly on the tour object instead of modifying options
+      tour._cleanupClickHandler = () => {
         document.removeEventListener('click', handleGlobalClick);
-      }
-    };
-    
-    // Add event listener after a small delay to prevent immediate closing
-    setTimeout(() => {
-      document.addEventListener('click', handleGlobalClick);
-    }, 500);
-    
-    // Store cleanup function reference
-    tour._cleanupClickHandler = () => {
-      document.removeEventListener('click', handleGlobalClick);
-    };
-    
-    // Original onDestroyed handler
-    const originalOnDestroyed = tour.options.onDestroyed;
-    
-    // Override onDestroyed to also remove click handler
-    tour.options.onDestroyed = () => {
-      if (typeof originalOnDestroyed === 'function') {
-        originalOnDestroyed();
-      }
-      if (typeof tour._cleanupClickHandler === 'function') {
-        tour._cleanupClickHandler();
-      }
-    };
-    
-    setCurrentTour(tour);
-    tour.drive();
+      };
+      
+      // Add our own cleanup handler that will run when the tour is destroyed
+      const originalDestroy = tour.destroy;
+      tour.destroy = function() {
+        // Call the original destroy method
+        originalDestroy.apply(this, arguments);
+        
+        // Run our cleanup
+        if (typeof tour._cleanupClickHandler === 'function') {
+          tour._cleanupClickHandler();
+        }
+      };
+      
+      // Store the tour in state
+      setCurrentTour(tour);
+      
+      // Start the tour
+      tour.drive();
+    } catch (error) {
+      console.error('Error starting tour:', error);
+      toast.error('Failed to start the tutorial');
+    }
   };
 
   // Handle mobile view switching from tour events
@@ -841,19 +888,6 @@ function CollaborativeApp() {
         mode="create"
         currentDirectory={null}
       />
-
-      {/* Help button with fixed position and onClick handler */}
-      <button
-        id="fixed-help-button"
-        onClick={handleStartTour}
-        className="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-3 shadow-lg z-50"
-        aria-label="Show help tour"
-        title="Show interactive tutorial"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </button>
     </div>
   );
 }

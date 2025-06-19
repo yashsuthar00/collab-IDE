@@ -79,3 +79,57 @@ body:not(.dark) .text-gray-500 {
   background-color: #3b82f6 !important;
   color: white !important; 
 }
+
+/* Force light theme when website is set to light mode */
+.light-theme-forced,
+body[data-theme="light"] {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+.light-theme-forced *,
+body[data-theme="light"] * {
+  color: inherit !important;
+}
+
+/* Override any dark mode styles when light theme is forced */
+.light-theme-forced .text-white,
+.light-theme-forced .text-gray-100,
+.light-theme-forced .text-gray-200,
+.light-theme-forced .text-gray-300 {
+  color: #1f2937 !important;
+}
+
+.light-theme-forced .text-gray-400 {
+  color: #6b7280 !important;
+}
+
+.light-theme-forced .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.light-theme-forced .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.light-theme-forced .bg-gray-800,
+.light-theme-forced .bg-gray-900 {
+  background-color: #ffffff !important;
+}
+
+.light-theme-forced .bg-gray-700 {
+  background-color: #f9fafb !important;
+}
+
+.light-theme-forced .border-gray-700,
+.light-theme-forced .border-gray-600 {
+  border-color: #e5e7eb !important;
+}
+
+.light-theme-forced input,
+.light-theme-forced textarea,
+.light-theme-forced select {
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #1f2937 !important;
+}

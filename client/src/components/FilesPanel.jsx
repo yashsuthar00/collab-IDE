@@ -830,7 +830,7 @@ const FilesPanel = ({
       };
       
       buildPath();
-    });
+    }, []); 
     
     return (
       <div className="flex items-center overflow-x-auto whitespace-nowrap py-2 px-1 scrollbar-hide">

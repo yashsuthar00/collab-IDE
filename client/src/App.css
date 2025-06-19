@@ -218,3 +218,109 @@ body[data-theme="dark"] .dropdown-item:hover {
 body[data-theme="dark"] .user-menu-item:hover {
   background-color: #1e293b !important;
 }
+
+/* Force light theme for all components when website theme is light */
+body[data-theme="light"] {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+/* Force navbar to light theme */
+body[data-theme="light"] .navbar-component {
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+}
+
+body[data-theme="light"] .navbar-component * {
+  color: #1f2937 !important;
+}
+
+/* Force output panel to light theme */
+body[data-theme="light"] .output-panel,
+body[data-theme="light"] .output-panel-content {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+body[data-theme="light"] .output-panel-tabs {
+  background-color: #f9fafb !important;
+  border-color: #e5e7eb !important;
+}
+
+/* Force all text to light theme colors */
+body[data-theme="light"] .text-gray-100,
+body[data-theme="light"] .text-gray-200,
+body[data-theme="light"] .text-gray-300,
+body[data-theme="light"] .text-gray-400,
+body[data-theme="light"] .text-white {
+  color: #1f2937 !important;
+}
+
+body[data-theme="light"] .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+body[data-theme="light"] .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+body[data-theme="light"] .text-gray-700,
+body[data-theme="light"] .text-gray-800,
+body[data-theme="light"] .text-gray-900 {
+  color: #1f2937 !important;
+}
+
+/* Force all backgrounds to light theme */
+body[data-theme="light"] .bg-gray-50 {
+  background-color: #f9fafb !important;
+}
+
+body[data-theme="light"] .bg-gray-100 {
+  background-color: #f3f4f6 !important;
+}
+
+body[data-theme="light"] .bg-gray-800,
+body[data-theme="light"] .bg-gray-900 {
+  background-color: #ffffff !important;
+}
+
+/* Force all form elements to light theme */
+body[data-theme="light"] textarea,
+body[data-theme="light"] select,
+body[data-theme="light"] input {
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #1f2937 !important;
+}
+
+/* Force Files Panel to light theme */
+body[data-theme="light"] .files-panel,
+body[data-theme="light"] .file-panel {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+body[data-theme="light"] .directory-tree-item,
+body[data-theme="light"] .file-item {
+  color: #1f2937 !important;
+}
+
+/* Force borders to light theme */
+body[data-theme="light"] .border-gray-200 {
+  border-color: #e5e7eb !important;
+}
+
+body[data-theme="light"] .border-gray-600,
+body[data-theme="light"] .border-gray-700 {
+  border-color: #e5e7eb !important;
+}
+
+/* Force hover states */
+body[data-theme="light"] .hover\:bg-gray-100:hover {
+  background-color: #f3f4f6 !important;
+}
+
+body[data-theme="light"] .hover\:bg-gray-800:hover,
+body[data-theme="light"] .hover\:bg-gray-700:hover {
+  background-color: #f3f4f6 !important;
+}

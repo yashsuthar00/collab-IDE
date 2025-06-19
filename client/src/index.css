@@ -39,6 +39,164 @@ html.dark {
   --highlight-bg: #374151;
 }
 
+/* NEW: Force light mode styling when website theme is light (regardless of device theme) */
+
+/* When website is set to light mode, force ALL elements to use light theme */
+html:not(.dark) {
+  color-scheme: light !important;
+  
+  /* Force light theme variables */
+  --foreground: #213547 !important;
+  --background: #ffffff !important;
+  --input-bg: #f9fafb !important;
+  --border-color: #e5e7eb !important;
+  --card-bg: #ffffff !important;
+  --card-border: #e5e7eb !important;
+  --navbar-bg: #ffffff !important;
+  --output-bg: #ffffff !important;
+  --error-bg: #fef2f2 !important;
+  --text-primary: #1f2937 !important;
+  --text-secondary: #4b5563 !important;
+  --text-tertiary: #6b7280 !important;
+  --text-inverted: #e6e6e6 !important;
+  --card-text: #1f2937 !important;
+  --highlight-bg: #f3f4f6 !important;
+}
+
+/* Force body to use light theme when website theme is light */
+html:not(.dark) body {
+  background-color: #ffffff !important;
+  color: #213547 !important;
+}
+
+/* Force navbar to light theme */
+html:not(.dark) .navbar-component {
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #1f2937 !important;
+}
+
+/* Force all text elements to use light theme colors */
+html:not(.dark) .text-gray-100,
+html:not(.dark) .text-gray-200,
+html:not(.dark) .text-gray-300,
+html:not(.dark) .text-gray-400,
+html:not(.dark) .text-white {
+  color: #1f2937 !important;
+}
+
+html:not(.dark) .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+html:not(.dark) .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+html:not(.dark) .text-gray-700,
+html:not(.dark) .text-gray-800,
+html:not(.dark) .text-gray-900 {
+  color: #1f2937 !important;
+}
+
+/* Force all background elements to use light theme */
+html:not(.dark) .bg-gray-50 {
+  background-color: #f9fafb !important;
+}
+
+html:not(.dark) .bg-gray-100 {
+  background-color: #f3f4f6 !important;
+}
+
+html:not(.dark) .bg-gray-200 {
+  background-color: #e5e7eb !important;
+}
+
+html:not(.dark) .bg-gray-800,
+html:not(.dark) .bg-gray-900 {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .bg-white {
+  background-color: #ffffff !important;
+}
+
+/* Force all input/form elements to light theme */
+html:not(.dark) input,
+html:not(.dark) textarea,
+html:not(.dark) select {
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #1f2937 !important;
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #6b7280 !important;
+}
+
+/* Force output panel to light theme */
+html:not(.dark) .output-panel,
+html:not(.dark) .output-panel-content {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+html:not(.dark) .output-panel-tabs {
+  background-color: #f9fafb !important;
+  border-color: #e5e7eb !important;
+}
+
+/* Force file panel to light theme */
+html:not(.dark) .file-panel,
+html:not(.dark) .files-panel {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+/* Force border colors to light theme */
+html:not(.dark) .border-gray-200 {
+  border-color: #e5e7eb !important;
+}
+
+html:not(.dark) .border-gray-300 {
+  border-color: #d1d5db !important;
+}
+
+html:not(.dark) .border-gray-600,
+html:not(.dark) .border-gray-700 {
+  border-color: #e5e7eb !important;
+}
+
+/* Force hover states to light theme */
+html:not(.dark) .hover\:bg-gray-100:hover {
+  background-color: #f3f4f6 !important;
+}
+
+html:not(.dark) .hover\:bg-gray-200:hover {
+  background-color: #e5e7eb !important;
+}
+
+html:not(.dark) .hover\:bg-gray-800:hover,
+html:not(.dark) .hover\:bg-gray-700:hover {
+  background-color: #f3f4f6 !important;
+}
+
+/* Force dropdown and menu elements to light theme */
+html:not(.dark) .dropdown-menu,
+html:not(.dark) .user-panel,
+html:not(.dark) .modal {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+  border-color: #e5e7eb !important;
+}
+
+/* Force specific component backgrounds */
+html:not(.dark) .card-bg,
+html:not(.dark) .panel-bg {
+  background-color: #ffffff !important;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);

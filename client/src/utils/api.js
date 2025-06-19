@@ -5,20 +5,36 @@ import { getFromStorage } from './storage';
 import { store } from '../store';
 import { logout } from '../store/authSlice';
 
-// Determine base URL based on environment with direct URLs
+// Determine base URL based on environment with network support
 const getBaseUrl = () => {
   if (import.meta.env.PROD) {
     return 'https://collab-ide-ep5q.onrender.com'; // Direct production URL
   }
-  return 'http://localhost:5000'; // Direct development URL
+  
+  // In development, check if we have a custom backend URL
+  const customBackendUrl = import.meta.env.VITE_BACKEND_URL;
+  if (customBackendUrl) {
+    return customBackendUrl;
+  }
+  
+  // Default to localhost for development
+  return 'http://localhost:5000';
 };
 
-// Socket URL handling with direct URLs
+// Socket URL handling with network support
 export const getSocketUrl = () => {
   if (import.meta.env.PROD) {
     return 'wss://collab-ide-ep5q.onrender.com'; // Direct production socket URL
   }
-  return 'ws://localhost:5000'; // Direct development socket URL
+  
+  // In development, check if we have a custom backend URL
+  const customBackendUrl = import.meta.env.VITE_BACKEND_URL;
+  if (customBackendUrl) {
+    return customBackendUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+  }
+  
+  // Default to localhost for development
+  return 'ws://localhost:5000';
 };
 
 // Create axios instance with configuration

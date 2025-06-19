@@ -29,20 +29,33 @@ const fixViewportForMobile = () => {
   }
 };
 
-// Apply dark mode if saved in localStorage
+// Apply dark mode based on user preference or saved value
 const initializeTheme = () => {
-  const savedTheme = localStorage.getItem('theme') || 'dark';
-  document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-  document.body.dataset.theme = savedTheme;
+  // First check if user has a saved preference
+  const savedTheme = localStorage.getItem('theme');
+  
+  if (savedTheme) {
+    // Use saved preference if available
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    document.body.dataset.theme = savedTheme;
+  } else {
+    // Otherwise use system preference
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', prefersDark);
+    document.body.dataset.theme = prefersDark ? 'dark' : 'light';
+    // Save this preference for future visits
+    localStorage.setItem('theme', prefersDark ? 'dark' : 'light');
+  }
   
   // Update theme color meta tag
   const metaThemeColor = document.querySelector('meta[name="theme-color"]');
   if (metaThemeColor) {
-    metaThemeColor.setAttribute('content', savedTheme === 'dark' ? '#1a1b26' : '#ffffff');
+    const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    metaThemeColor.setAttribute('content', currentTheme === 'dark' ? '#1a1b26' : '#ffffff');
   }
   
   // Apply some CSS overrides based on theme
-  if (savedTheme === 'dark') {
+  if (document.documentElement.classList.contains('dark')) {
     document.body.classList.add('dark-theme-applied');
   } else {
     document.body.classList.remove('dark-theme-applied');

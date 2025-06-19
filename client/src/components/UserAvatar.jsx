@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserCircle } from 'lucide-react';
 
 /**
@@ -6,6 +6,8 @@ import { UserCircle } from 'lucide-react';
  * or a fallback with their initial or a generic user icon
  */
 function UserAvatar({ user, size = 'md', className = '' }) {
+  const [imageError, setImageError] = useState(false);
+  
   // Handle different size classes
   const sizeClasses = {
     sm: 'w-6 h-6',
@@ -27,19 +29,14 @@ function UserAvatar({ user, size = 'md', className = '' }) {
     return 'U';
   };
   
-  // If user has an avatar image, show it
-  if (user?.avatar) {
+  // If user has an avatar image and no error, show it
+  if (user?.avatar && !imageError) {
     return (
       <img 
         src={user.avatar} 
         alt={user?.username || 'User'} 
         className={`${sizeClass} rounded-full object-cover ${className}`}
-        onError={(e) => {
-          // Fallback if image loading fails
-          e.target.onerror = null;
-          e.target.style.display = 'none';
-          e.target.nextElementSibling.style.display = 'flex';
-        }}
+        onError={() => setImageError(true)}
       />
     );
   }

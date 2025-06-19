@@ -24,10 +24,11 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0'; // Add HOST configuration
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: '*', // Allow all origins for development
     methods: ['GET', 'POST'],
   },
 });
@@ -39,9 +40,15 @@ connectDB()
 
 // Middleware
 
-// CORS middleware with hard-coded allowed origins
+// CORS middleware with more permissive settings for development
 app.use(cors({
   origin: function(origin, callback) {
+    // Allow requests from any origin in development
+    if (process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+      return;
+    }
+    
     const allowedOrigins = [
       'http://localhost:5173',       // Local development
       'https://colab-ide.vercel.app' // Production
@@ -50,7 +57,7 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       console.log('CORS blocked request from:', origin);
@@ -1039,6 +1046,24 @@ app.get('/ping', (req, res) => {
   res.status(200).send('Pong');
 });
 
-server.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+    console.log(`🚀 Server running on http://${HOST}:${PORT}`);
+    console.log(`🌐 Network access: http://${getLocalIPAddress()}:${PORT}`);
 });
+
+// Helper function to get local IP address
+function getLocalIPAddress() {
+  const { networkInterfaces } = require('os');
+  const nets = networkInterfaces();
+  
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  
+  return 'localhost';
+}
