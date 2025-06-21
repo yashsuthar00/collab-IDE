@@ -5,7 +5,14 @@ import FriendRequestAlert from './FriendRequestAlert';
 import RoomInvitationAlert from './RoomInvitationAlert';
 import UserAvatar from './UserAvatar';
 
-const FriendsPanel = ({ isOpen, onClose, onInviteToRoom, roomId, isMobile = false }) => {
+const FriendsPanel = ({ 
+  isOpen, 
+  onClose, 
+  onInviteToRoom,
+  roomId,
+  isMobile = false,
+  initialActiveTab = 'friends' // Add this prop with default value
+}) => {
   const {
     friends,
     pendingRequests,
@@ -13,11 +20,11 @@ const FriendsPanel = ({ isOpen, onClose, onInviteToRoom, roomId, isMobile = fals
     roomInvitations,
     searchResults,
     loading,
-    error,
     actions
   } = useFriends();
   
-  const [activeTab, setActiveTab] = useState('friends');
+  // Change this to use the initialActiveTab
+  const [activeTab, setActiveTab] = useState(initialActiveTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchInputRef = useRef(null);
@@ -30,6 +37,11 @@ const FriendsPanel = ({ isOpen, onClose, onInviteToRoom, roomId, isMobile = fals
     action: null
   });
   
+  // Update active tab when initialActiveTab changes
+  useEffect(() => {
+    setActiveTab(initialActiveTab);
+  }, [initialActiveTab]);
+
   const handleSearch = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
@@ -349,7 +361,7 @@ const FriendsPanel = ({ isOpen, onClose, onInviteToRoom, roomId, isMobile = fals
             </div>
           </div>
         );
-      case 'invites':
+      case 'invitations': // Change this from 'invites' to 'invitations'
         return (
           <div className="flex-1 overflow-y-auto">
             {loading.invitations ? (
@@ -424,9 +436,9 @@ const FriendsPanel = ({ isOpen, onClose, onInviteToRoom, roomId, isMobile = fals
           Add
         </button>
         <button
-          onClick={() => setActiveTab('invites')}
+          onClick={() => setActiveTab('invitations')} // Change this from 'invites' to 'invitations'
           className={`flex-1 py-3 text-center text-sm font-medium ${
-            activeTab === 'invites'
+            activeTab === 'invitations' // Change this from 'invites' to 'invitations'
               ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
           }`}
