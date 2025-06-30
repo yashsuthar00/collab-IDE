@@ -14,6 +14,7 @@ import RecentFiles from './components/RecentFiles';
 import UserPanel from './components/UserPanel'; // Add this import
 import FileDialog from './components/FileDialog'; // Add this import
 import SharedCodeViewer from './components/SharedCodeViewer'; // Import the new component
+import LeetcodeSolutions from './components/LeetcodeSolutions'; // Import the new component
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
 import { FriendsProvider } from './contexts/FriendsContext'; // Import FriendsProvider
@@ -752,6 +753,7 @@ function CollaborativeApp() {
     [isInRoom, roomId, language.id]
   );
 
+
   return (
     <div className={`h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${theme === 'dark' ? 'dark-mode' : 'light-mode'}`}>
       <Navbar 
@@ -898,6 +900,7 @@ function AppContent() {
     <Routes>
       <Route path="/shared/:slug" element={<SharedCodeViewer />} />
       <Route path="/oauth-callback" element={<OAuthCallback />} />
+      <Route path="/leetcode" element={<LeetcodeSolutions />} /> {/* Add this line */}
       <Route path="/*" element={<CollaborativeApp />} />
     </Routes>
   );

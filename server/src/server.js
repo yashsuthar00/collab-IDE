@@ -15,6 +15,7 @@ const codeFileRoutes = require('./routes/codeFiles');
 const directoryRoutes = require('./routes/directories');
 const sharedCodeRoutes = require('./routes/sharedCodeRoutes');
 const emailRoutes = require('./routes/emailRoutes'); // Import email routes
+const leetcodeRoutes = require('./routes/leetcodeRoutes'); // Import leetcode routes
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
 const jwt = require('jsonwebtoken');
@@ -131,6 +132,9 @@ app.use('/api/shared', sharedCodeRoutes);
 
 // Add email routes
 app.use('/api/email', emailRoutes);
+
+// Add leetcode routes
+app.use('/api/leetcode', leetcodeRoutes);
 
 // Add error handling middleware after all routes
 app.use(errorHandler);

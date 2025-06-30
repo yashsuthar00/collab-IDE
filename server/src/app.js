@@ -7,7 +7,9 @@ const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const sharedCodeRoutes = require('./routes/sharedCodeRoutes');
 const emailRoutes = require('./routes/emailRoutes');
+const leetcodeRoutes = require('./routes/leetcodeRoutes'); // Make sure this is imported
 const { checkClientVersion } = require('./middleware/versionMiddleware');
+const logger = require('./utils/logger'); // Import logger
 
 // Load environment variables
 dotenv.config();
@@ -23,11 +25,23 @@ app.use(express.urlencoded({ extended: true }));
 // Add version checking middleware
 app.use(checkClientVersion);
 
+// Add detailed request logging middleware
+app.use((req, res, next) => {
+  // Log the full authorization header for debugging
+  const authHeader = req.headers.authorization;
+  logger.debug(`Request: ${req.method} ${req.path}`, {
+    authHeader: authHeader ? authHeader.substring(0, 20) + '...' : 'none',
+    cookies: req.cookies ? 'present' : 'none'
+  });
+  next();
+});
+
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/shared', sharedCodeRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/leetcode', leetcodeRoutes); // Make sure this is correctly mounted
 
 // Health check route
 app.get('/ping', (req, res) => {
