@@ -957,6 +957,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       },
       overviewRulerLanes: 0, // Disable overview ruler on mobile
       renderLineHighlightOnlyWhenFocus: true, // Better for mobile performance
+      renderWhitespace: 'none', // disables all whitespace highlighting
       readOnly,
       domReadOnly: readOnly,
     };

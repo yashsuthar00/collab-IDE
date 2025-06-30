@@ -53,6 +53,9 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.debug('Adding auth token to request');
+    } else {
+      console.debug('No auth token found for request');
     }
     return config;
   },
@@ -324,6 +327,31 @@ const api = {
   // Add email functionality
   email: {
     sendCodeShareEmail: (data) => apiClient.post('/api/email/share-code', data)
+  },
+  
+  // Add LeetCode API methods
+  leetcode: {
+    saveSolution: async (data) => {
+      console.log('Sending LeetCode solution to API:', {
+        problemTitle: data.problemTitle,
+        language: data.language,
+        hasToken: !!localStorage.getItem('token')
+      });
+      return apiClient.post('/api/leetcode/save', data);
+    },
+    
+    getSolutions: async () => {
+      console.log('Fetching LeetCode solutions, token present:', !!localStorage.getItem('token'));
+      return apiClient.get('/api/leetcode');
+    },
+    
+    getSolutionById: async (id) => {
+      return apiClient.get(`/api/leetcode/${id}`);
+    },
+    
+    deleteSolution: async (id) => {
+      return apiClient.delete(`/api/leetcode/${id}`);
+    }
   }
 };
 

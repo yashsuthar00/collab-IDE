@@ -15,6 +15,7 @@ const codeFileRoutes = require('./routes/codeFiles');
 const directoryRoutes = require('./routes/directories');
 const sharedCodeRoutes = require('./routes/sharedCodeRoutes');
 const emailRoutes = require('./routes/emailRoutes'); // Import email routes
+const leetcodeRoutes = require('./routes/leetcodeRoutes'); // Import leetcode routes
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
 const jwt = require('jsonwebtoken');
@@ -43,21 +44,27 @@ connectDB()
 // CORS middleware with more permissive settings for development
 app.use(cors({
   origin: function(origin, callback) {
+    // Log the incoming origin for debugging
+    console.log('CORS request origin:', origin);
+
     // Allow requests from any origin in development
     if (process.env.NODE_ENV !== 'production') {
       callback(null, true);
       return;
     }
-    
+
+    // TEMP: Uncomment the next line to allow all origins in production for debugging
+    // callback(null, true); return;
+
     const allowedOrigins = [
-      'http://localhost:5173',       // Local development
-      'https://colab-ide.vercel.app' // Production
+      'http://localhost:5173',
+      'https://colab-ide.vercel.app',
+      'chrome-extension://dhgdbcdgbjjojnddeoicfebcidppkjdm' // Replace with your real extension ID
     ];
-    
-    // Allow requests with no origin (like mobile apps, curl requests)
+
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
+
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.log('CORS blocked request from:', origin);
@@ -131,6 +138,9 @@ app.use('/api/shared', sharedCodeRoutes);
 
 // Add email routes
 app.use('/api/email', emailRoutes);
+
+// Add leetcode routes
+app.use('/api/leetcode', leetcodeRoutes);
 
 // Add error handling middleware after all routes
 app.use(errorHandler);
