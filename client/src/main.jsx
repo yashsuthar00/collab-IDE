@@ -4,6 +4,7 @@ import { BrowserRouter as Router } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
 import { Toaster } from 'react-hot-toast'
+import { Analytics } from "@vercel/analytics/react"
 
 // Silence React Router future flag warnings and socket warnings
 const originalConsoleWarn = console.warn;
@@ -136,6 +137,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <Router>
       <App />
+      <Analytics />
       <Toaster position="top-right" />
     </Router>
   </React.StrictMode>

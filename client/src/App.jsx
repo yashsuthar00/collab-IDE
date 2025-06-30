@@ -19,6 +19,7 @@ import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
 import { FriendsProvider } from './contexts/FriendsContext'; // Import FriendsProvider
 import api, { getConnectedSocket } from './utils/api';
+import { Analytics } from "@vercel/analytics/react"
 import { 
   createMainTour, 
   createCollaborationTour, 
@@ -930,6 +931,7 @@ function App() {
           <AppContent />
         </RoomProvider>
       </FriendsProvider>
+      <Analytics />
     </Provider>
   );
 }
