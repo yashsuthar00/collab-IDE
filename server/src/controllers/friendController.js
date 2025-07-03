@@ -348,9 +348,9 @@ exports.searchUsers = async (req, res) => {
     
     // Add friend status to each user
     const usersWithStatus = users.map(user => {
-      const pendingRequest = pendingRequests.find(req => 
-        (req.sender.toString() === req.user.id && req.recipient.toString() === user._id.toString()) ||
-        (req.recipient.toString() === req.user.id && req.sender.toString() === user._id.toString())
+      const pendingRequest = pendingRequests.find(request => 
+        (request.sender.toString() === req.user.id && request.recipient.toString() === user._id.toString()) ||
+        (request.recipient.toString() === req.user.id && request.sender.toString() === user._id.toString())
       );
       
       let friendStatus = 'none';
