@@ -80,19 +80,19 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
             ) : output ? (
               <div className="font-mono text-xs md:text-sm whitespace-pre-wrap p-3 md:p-4 rounded-md bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 h-full overflow-auto text-gray-800 dark:text-gray-200">
                 {output.error ? (
-                  <span className="text-red-500">{output.error}</span>
+                  <span className="text-red-500 break-words whitespace-pre-wrap">{output.error}</span>
                 ) : (
                   <>
                     {output.stderr ? (
                       <div className="mb-4">
                         <div className="font-semibold text-red-600 dark:text-red-400 mb-2">Error Output:</div>
-                        <pre className="bg-red-50 dark:bg-red-900/20 p-2 md:p-3 rounded-md border border-red-200 dark:border-red-800/30 text-red-500 text-xs md:text-sm">{output.stderr}</pre>
+                        <pre className="bg-red-50 dark:bg-red-900/20 p-2 md:p-3 rounded-md border border-red-200 dark:border-red-800/30 text-red-500 text-xs md:text-sm whitespace-pre-wrap break-words overflow-x-auto">{output.stderr}</pre>
                       </div>
                     ) : null}
                     
                     {output.stdout ? (
                       <div className="mb-4">
-                        <pre className="bg-white dark:bg-gray-900 p-2 md:p-3 rounded-md border border-gray-200 dark:border-gray-700 text-xs md:text-sm">{output.stdout}</pre>
+                        <pre className="bg-white dark:bg-gray-900 p-2 md:p-3 rounded-md border border-gray-200 dark:border-gray-700 text-xs md:text-sm whitespace-pre-wrap break-words overflow-x-auto">{output.stdout}</pre>
                       </div>
                     ) : (
                       <div className="text-center text-gray-500 dark:text-gray-400 py-4">
@@ -124,7 +124,7 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
               onChange={(e) => !readOnly && setInput(e.target.value)}
               onFocus={handleTextareaResize}
               placeholder={readOnly ? "Input is locked in read-only mode" : "Enter program input here..."}
-              className={`w-full h-full p-3 md:p-4 font-mono text-xs md:text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none text-gray-800 dark:text-gray-200 ${readOnly ? 'cursor-not-allowed bg-gray-50/80 dark:bg-gray-900/50' : ''}`}
+              className={`w-full h-full p-3 md:p-4 font-mono text-xs md:text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words overflow-wrap-anywhere ${readOnly ? 'cursor-not-allowed bg-gray-50/80 dark:bg-gray-900/50' : ''}`}
               spellCheck="false"
               autoCapitalize="none"
               autoComplete="off"
