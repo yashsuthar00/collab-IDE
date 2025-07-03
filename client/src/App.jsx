@@ -15,6 +15,7 @@ import UserPanel from './components/UserPanel'; // Add this import
 import FileDialog from './components/FileDialog'; // Add this import
 import SharedCodeViewer from './components/SharedCodeViewer'; // Import the new component
 import LeetcodeSolutions from './components/LeetcodeSolutions'; // Import the new component
+
 import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
 import { FriendsProvider } from './contexts/FriendsContext'; // Import FriendsProvider
@@ -125,6 +126,7 @@ function CollaborativeApp() {
   const [isRecentFilesOpen, setIsRecentFilesOpen] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
   const [isFileDialogOpen, setIsFileDialogOpen] = useState(false); // Add this state
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   const [isPanelsSwapped, setIsPanelsSwapped] = useState(() => {
     // Load user preference from localStorage
@@ -992,6 +994,18 @@ function CollaborativeApp() {
     localStorage.setItem('panelsSwapped', newSwappedState.toString());
   }, [isPanelsSwapped]);
 
+  // Function to reset the code editor to a completely blank state
+  const resetCodeEditor = useCallback(() => {
+    // Set code to empty string - completely blank with no signature
+    setCode('');
+    
+    // Clear current file selection
+    setCurrentFile(null);
+    
+    // Show success message
+    toast.success('Code editor has been reset');
+  }, []);
+
 
   return (
     <div className={`h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${theme === 'dark' ? 'dark-mode' : 'light-mode'}`}>
@@ -1018,7 +1032,7 @@ function CollaborativeApp() {
         onSaveFile={handleSaveFile}
         onOpenFilesPanel={() => setIsFilesPanelOpen(true)}
         onOpenRecentFiles={() => setIsRecentFilesOpen(true)}
-        code={code} 
+        code={code}
       />
       
       <div className="md:hidden flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
