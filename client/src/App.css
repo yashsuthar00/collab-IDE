@@ -33,17 +33,38 @@
   }
 }
 
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
+/* Animation for pulsing effects */
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
   }
   50% {
-    opacity: .5;
+    opacity: 0.5;
   }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Animation for horizontal movement */
+@keyframes pulse-horizontal {
+  0%, 100% {
+    transform: translateY(-50%) translateX(0);
+    opacity: 1;
+  }
+  25% {
+    transform: translateY(-50%) translateX(-3px);
+    opacity: 0.9;
+  }
+  75% {
+    transform: translateY(-50%) translateX(3px);
+    opacity: 0.9;
+  }
+}
+
+.animate-pulse-horizontal {
+  animation: pulse-horizontal 2s ease-in-out infinite;
 }
 
 .transition-colors {
@@ -336,16 +357,129 @@ body[data-theme="light"] .hover\:bg-gray-700:hover {
   max-width: 100% !important;
 }
 
-/* Ensure all code content wraps properly on smaller screens */
-.break-words {
-  word-break: break-word !important;
-  overflow-wrap: break-word !important;
+/* Cursor styles for draggable divider */
+.cursor-col-resize {
+  cursor: col-resize;
 }
 
+/* Draggable divider styles */
+.draggable-divider {
+  position: relative;
+  transition: background-color 0.15s ease;
+  will-change: transform, background-color;
+  touch-action: none;
+  background-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.05), transparent);
+}
+
+.draggable-divider:hover {
+  background-image: linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.2), transparent);
+}
+
+/* Optimize drag performance */
+.dragging #code-editor,
+.dragging #output-panel {
+  transition: none !important;
+  will-change: width;
+  contain: strict;
+}
+
+/* Apply hardware acceleration during drag */
+.dragging .flex.flex-1.overflow-hidden {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Prevent text selection during drag */
+.dragging {
+  user-select: none !important;
+  cursor: col-resize !important;
+}
+
+/* Make the drag area more obvious on hover */
+.draggable-divider:hover {
+  background-color: #3b82f6 !important; /* blue-500 */
+}
+
+.draggable-divider::before {
+  content: "⋮";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  font-size: 16px;
+  color: #999;
+  transition: color 0.15s ease;
+}
+
+.draggable-divider:hover::before {
+  color: white;
+}
+
+body.dragging {
+  cursor: col-resize !important;
+}
+
+body.dragging * {
+  /* Prevent text selection during drag */
+  user-select: none !important;
+}
+
+/* Improve performance during drag operations */
+body.dragging #code-editor,
+body.dragging #output-panel {
+  will-change: width;
+  transition: none !important;
+}
+
+/* Fullscreen styles */
+.fullscreen {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100% !important;
+  height: 100vh !important;
+  z-index: 1000;
+  border: none !important;
+}
+
+/* Ensure all long text wraps properly */
 .whitespace-pre-wrap {
   white-space: pre-wrap !important;
 }
 
+.break-words {
+  word-break: break-word !important;
+}
+
 .overflow-wrap-anywhere {
   overflow-wrap: anywhere !important;
+}
+
+/* Add pulse animation for the divider handle */
+@keyframes subtle-pulse {
+  0% { 
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% { 
+    opacity: 0.7;
+    transform: scale(1);
+  }
+}
+
+.divider-handle-pulse {
+  animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+/* Make the divider handle more visible on first load */
+.divider-handle {
+  transform: scaleY(1);
+  transition: transform 0.2s ease;
 }

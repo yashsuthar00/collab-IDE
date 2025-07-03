@@ -109,6 +109,12 @@ function CollaborativeApp() {
 
   const [mobileView, setMobileView] = useState('code');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [editorWidth, setEditorWidth] = useState(60); // Default editor width percentage
+  const [isDragging, setIsDragging] = useState(false);
+  const [showDividerHint, setShowDividerHint] = useState(() => {
+    // Only show hint if user hasn't seen it before
+    return localStorage.getItem('dividerHintSeen') !== 'true';
+  });
 
   const [isUserPanelOpen, setIsUserPanelOpen] = useState(false);
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
@@ -119,6 +125,19 @@ function CollaborativeApp() {
   const [isRecentFilesOpen, setIsRecentFilesOpen] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
   const [isFileDialogOpen, setIsFileDialogOpen] = useState(false); // Add this state
+
+  // Auto-hide the divider hint after a few seconds
+  useEffect(() => {
+    if (showDividerHint) {
+      const timer = setTimeout(() => {
+        setShowDividerHint(false);
+        // Mark hint as seen in localStorage
+        localStorage.setItem('dividerHintSeen', 'true');
+      }, 5000); // Hide after 3 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showDividerHint]);
 
   const toggleMobileView = () => {
     setMobileView(prev => prev === 'code' ? 'output' : 'code');
@@ -142,6 +161,169 @@ function CollaborativeApp() {
       window.removeEventListener('resize', checkMobile);
     };
   }, []);
+
+  // Add handlers for draggable divider
+  const handleDragStart = (e) => {
+    // Prevent default to avoid text selection during drag
+    e.preventDefault();
+    
+    // Get clientX from mouse or touch event
+    const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+    
+    // Cache the initial positions for smoother dragging
+    const container = document.querySelector('.flex.flex-1.overflow-hidden');
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      
+      // Store initial values globally for performance
+      window._dragData = {
+        containerLeft: rect.left,
+        containerWidth: rect.width,
+        startX: clientX
+      };
+    }
+    
+    // Disable transitions during drag for better performance
+    const codeEditor = document.getElementById('code-editor');
+    const outputPanel = document.getElementById('output-panel');
+    if (codeEditor) codeEditor.style.transition = 'none';
+    if (outputPanel) outputPanel.style.transition = 'none';
+    
+    // Apply styles directly for instant feedback
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    document.body.classList.add('dragging');
+    
+    // Add active class to the divider
+    const divider = e.currentTarget;
+    divider.classList.add('bg-blue-400', 'dark:bg-blue-600');
+    
+    // Hide divider hint immediately if showing
+    if (showDividerHint) {
+      setShowDividerHint(false);
+      // Mark hint as seen in localStorage
+      localStorage.setItem('dividerHintSeen', 'true');
+    }
+    
+    // Set state after visual updates
+    setIsDragging(true);
+    
+    // Pre-select elements for faster access during drag
+    window._dragElements = {
+      codeEditor,
+      outputPanel,
+      divider
+    };
+  };
+
+  const handleDrag = useCallback((e) => {
+    if (!isDragging || isMobile || !window._dragData || !window._dragElements) return;
+    
+    // Get clientX from mouse or touch event
+    const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+    
+    // Use stored references for faster access
+    const { containerLeft, containerWidth } = window._dragData;
+    const { codeEditor, outputPanel } = window._dragElements;
+    
+    // Direct calculation without requestAnimationFrame for immediate response
+    const newWidth = Math.min(
+      Math.max(
+        ((clientX - containerLeft) / containerWidth) * 100,
+        20 // Min 20%
+      ),
+      80 // Max 80%
+    );
+    
+    // Apply width directly to DOM for instant feedback
+    if (codeEditor && outputPanel) {
+      codeEditor.style.width = `${newWidth}%`;
+      outputPanel.style.width = `${100 - newWidth}%`;
+    }
+    
+    // Store the last width to apply to React state when dragging ends
+    window._dragData.lastWidth = newWidth;
+    
+  }, [isDragging, isMobile]);
+
+  const handleDragEnd = () => {
+    // Update React state once at the end for better performance
+    if (window._dragData && window._dragData.lastWidth) {
+      setEditorWidth(window._dragData.lastWidth);
+    }
+    
+    // Restore transitions after drag
+    if (window._dragElements) {
+      const { codeEditor, outputPanel } = window._dragElements;
+      
+      // Use setTimeout to ensure the transition doesn't interfere with the final position
+      setTimeout(() => {
+        if (codeEditor) codeEditor.style.transition = '';
+        if (outputPanel) outputPanel.style.transition = '';
+      }, 50);
+    }
+    
+    // Clean up
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    document.body.classList.remove('dragging');
+    
+    // Remove active class from divider
+    if (window._dragElements && window._dragElements.divider) {
+      window._dragElements.divider.classList.remove('bg-blue-400', 'dark:bg-blue-600');
+    }
+    
+    // Clean up global references
+    window._dragData = null;
+    window._dragElements = null;
+    
+    setIsDragging(false);
+  };
+
+  // Add event listeners for drag operation
+  useEffect(() => {
+    // Only attach listeners when dragging
+    if (isDragging) {
+      // Mouse events
+      const handleMouseDrag = (e) => {
+        e.preventDefault(); // Prevent text selection
+        handleDrag(e);
+      };
+      
+      // Touch events handler with the right clientX
+      const handleTouchDrag = (e) => {
+        e.preventDefault(); // Prevent scrolling
+        // Create a synthetic event with clientX from the touch
+        const touchEvent = {
+          ...e,
+          type: 'touchmove',
+          clientX: e.touches[0].clientX
+        };
+        handleDrag(touchEvent);
+      };
+      
+      // Use passive: false to allow preventDefault() for touch events
+      window.addEventListener('mousemove', handleMouseDrag, { passive: false });
+      window.addEventListener('mouseup', handleDragEnd);
+      
+      // Additional touch support for mobile/tablet
+      window.addEventListener('touchmove', handleTouchDrag, { passive: false });
+      window.addEventListener('touchend', handleDragEnd);
+      window.addEventListener('touchcancel', handleDragEnd);
+      
+      return () => {
+        // Clean up all listeners
+        window.removeEventListener('mousemove', handleMouseDrag);
+        window.removeEventListener('mouseup', handleDragEnd);
+        window.removeEventListener('touchmove', handleTouchDrag);
+        window.removeEventListener('touchend', handleDragEnd);
+        window.removeEventListener('touchcancel', handleDragEnd);
+      };
+    }
+    
+    // Clean up function for when component unmounts or isDragging changes to false
+    return () => {};
+  }, [isDragging, handleDrag]);
   
   useEffect(() => {
     localStorage.setItem('selectedLanguage', language.id);
@@ -809,7 +991,12 @@ function CollaborativeApp() {
       <div className="flex flex-1 overflow-hidden">
         <div 
           id="code-editor"
-          className={`md:w-3/5 w-full h-full border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
+          style={{ 
+            width: isMobile ? '100%' : `${editorWidth}%`,
+            transition: 'width 0.15s ease',
+            willChange: isDragging ? 'width' : 'auto'
+          }}
+          className={`w-full h-full border-r border-gray-200 dark:border-gray-700 ${
             mobileView === 'output' ? 'hidden md:block' : 'block'
           } ${isMobile ? 'pb-12' : ''}`}
         >
@@ -826,9 +1013,61 @@ function CollaborativeApp() {
           </ErrorBoundary>
         </div>
         
+        {/* Draggable divider */}
+        {!isMobile && (
+          <div
+            className="w-1 bg-gray-300 dark:bg-gray-600 hover:bg-blue-400 dark:hover:bg-blue-600 cursor-col-resize flex-shrink-0 relative group transition-colors duration-150 draggable-divider"
+            onMouseDown={handleDragStart}
+            onTouchStart={handleDragStart}
+            title="Drag to resize panels"
+            aria-label="Drag to resize panels"
+            style={{ 
+              touchAction: 'none', /* Prevent scrolling during touch drag */
+              willChange: 'background-color',
+              zIndex: 30 /* Ensure divider is above other elements */
+            }}
+          >
+            {/* Hover active area (invisible, wider for easier targeting) */}
+            <div className="absolute inset-0 w-6 -translate-x-1/2 group-hover:bg-blue-300/20 dark:group-hover:bg-blue-700/20"></div>
+            
+            {/* Elegant drag handle design */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center h-16 pointer-events-none">
+              <div className="w-1 h-8 rounded-full bg-gray-400 dark:bg-gray-500 group-hover:bg-blue-500 dark:group-hover:bg-blue-400 transition-colors duration-150 relative">
+                {/* Pulse animation ring for the handle when hint is showing */}
+                {showDividerHint && (
+                  <div className="absolute -inset-2 rounded-full animate-ping bg-blue-500/40 dark:bg-blue-400/40"></div>
+                )}
+              </div>
+            </div>
+            
+            {/* Tooltip on hover */}
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-50 tooltip-hint">
+              Drag to resize panels
+            </div>
+            
+            {/* Subtle animated hint that shows briefly */}
+            {showDividerHint && (
+              <div className="absolute top-1/2 left-0 -translate-y-1/2 bg-blue-500/90 text-white text-xs font-medium rounded-r py-1 px-2 shadow-md z-50 whitespace-nowrap pointer-events-none flex items-center space-x-1 backdrop-blur-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span>Drag</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            )}
+          </div>
+        )}
+        
         <div 
           id="output-panel"
-          className={`md:w-2/5 w-full h-full transition-all duration-300 ${
+          style={{ 
+            width: isMobile ? '100%' : `${100 - editorWidth}%`,
+            transition: 'width 0.15s ease',
+            willChange: isDragging ? 'width' : 'auto'
+          }}
+          className={`w-full h-full ${
             mobileView === 'code' ? 'hidden md:block' : 'block'
           } ${isMobile ? 'pb-12' : ''}`}
         >

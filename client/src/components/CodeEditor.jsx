@@ -9,6 +9,7 @@ import {
   monacoChangeToOp, applyOps, transformOps, 
   offsetToPosition 
 } from '../utils/ot';
+import { Maximize2, Minimize2, Expand } from 'lucide-react';
 
 // Helper function to generate random colors for user cursors
 const getRandomColor = () => {
@@ -60,6 +61,10 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
   
   const [showCharsBar, setShowCharsBar] = useState(window.innerWidth < 1024);
   const [remoteUserCursors, setRemoteUserCursors] = useState(new Map());
+  const [showSpecialChars, setShowSpecialChars] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
 
   // Function to get a consistent color for a user
   const getUserColor = useCallback((userId) => {
@@ -963,6 +968,55 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     };
   };
 
+  // Toggle fullscreen mode
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
+  // Toggle browser fullscreen mode
+  const toggleBrowserFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+      setIsBrowserFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+      setIsBrowserFullscreen(false);
+    }
+  };
+
+  // Handle ESC key to exit all fullscreen modes
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        }
+        if (isBrowserFullscreen) {
+          setIsBrowserFullscreen(false);
+        }
+      }
+    };
+
+    // Listen for fullscreenchange event
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsBrowserFullscreen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isFullscreen, isBrowserFullscreen]);
+
   // Flag unmounting to prevent state updates
   useEffect(() => {
     // Capture current timeout values
@@ -991,10 +1045,28 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
   }, []);
 
   return (
-    <div className="h-full flex flex-col relative">
+    <div className={`h-full flex flex-col relative ${isFullscreen ? 'fullscreen' : ''}`}>
+      {/* Fullscreen toggle button */}
+      <button 
+        onClick={toggleFullscreen}
+        className="absolute top-3 right-3 bg-opacity-90 z-20 rounded-md p-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 hover:bg-gray-200/70 dark:hover:bg-gray-700/70"
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      >
+        {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+      </button>
+
+      {/* Browser fullscreen toggle button */}
+      <button 
+        onClick={toggleBrowserFullscreen}
+        className="absolute top-3 right-12 bg-opacity-90 z-20 rounded-md p-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 hover:bg-gray-200/70 dark:hover:bg-gray-700/70"
+        aria-label={isBrowserFullscreen ? "Exit browser fullscreen" : "Enter browser fullscreen"}
+      >
+        <Expand size={16} />
+      </button>
+
       {/* Redesigned read-only indicator - more subtle and modern */}
       {readOnly && (
-        <div className="absolute top-3 right-3 bg-opacity-90 z-10 rounded-md px-2.5 py-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700">
+        <div className="absolute top-3 right-21 bg-opacity-90 z-10 rounded-md px-2.5 py-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700">
           <div className="h-2 w-2 rounded-full bg-amber-400 dark:bg-amber-500 mr-2"></div>
           <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Read-only</span>
         </div>
