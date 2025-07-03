@@ -126,6 +126,14 @@ function CollaborativeApp() {
   const [currentFile, setCurrentFile] = useState(null);
   const [isFileDialogOpen, setIsFileDialogOpen] = useState(false); // Add this state
 
+  const [isPanelsSwapped, setIsPanelsSwapped] = useState(() => {
+    // Load user preference from localStorage
+    return localStorage.getItem('panelsSwapped') === 'true';
+  });
+
+  // State to track which hint to show
+  const [showSwapHint, setShowSwapHint] = useState(false);
+
   // Auto-hide the divider hint after a few seconds
   useEffect(() => {
     if (showDividerHint) {
@@ -133,11 +141,36 @@ function CollaborativeApp() {
         setShowDividerHint(false);
         // Mark hint as seen in localStorage
         localStorage.setItem('dividerHintSeen', 'true');
-      }, 5000); // Hide after 3 seconds
+      }, 3000); // Hide after 3 seconds
       
       return () => clearTimeout(timer);
     }
   }, [showDividerHint]);
+
+  // Show swap hint after drag hint disappears
+  useEffect(() => {
+    if (!showDividerHint && !localStorage.getItem('swapHintSeen')) {
+      // Show the swap hint only after the drag hint is gone
+      const timer = setTimeout(() => {
+        setShowSwapHint(true);
+      }, 3000); // Short delay after drag hint disappears
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showDividerHint]);
+
+  // Auto-hide the swap hint after a few seconds
+  useEffect(() => {
+    if (showSwapHint) {
+      const timer = setTimeout(() => {
+        setShowSwapHint(false);
+        // Mark hint as seen in localStorage
+        localStorage.setItem('swapHintSeen', 'true');
+      }, 5000); // Hide after 5 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showSwapHint]);
 
   const toggleMobileView = () => {
     setMobileView(prev => prev === 'code' ? 'output' : 'code');
@@ -226,25 +259,39 @@ function CollaborativeApp() {
     const { containerLeft, containerWidth } = window._dragData;
     const { codeEditor, outputPanel } = window._dragElements;
     
-    // Direct calculation without requestAnimationFrame for immediate response
-    const newWidth = Math.min(
-      Math.max(
-        ((clientX - containerLeft) / containerWidth) * 100,
-        20 // Min 20%
-      ),
-      80 // Max 80%
-    );
+    // Calculate the position percentage (0-100) based on mouse position
+    const positionPercent = ((clientX - containerLeft) / containerWidth) * 100;
+    
+    // Calculate the width percentages
+    let codeEditorWidth, outputPanelWidth;
+    
+    if (isPanelsSwapped) {
+      // When panels are swapped:
+      // - Left side (first panel) is output panel
+      // - Right side (second panel) is code editor
+      // - Dragging right should make the output panel (left) wider
+      outputPanelWidth = Math.min(Math.max(positionPercent, 20), 80);
+      codeEditorWidth = 100 - outputPanelWidth;
+    } else {
+      // Normal layout:
+      // - Left side (first panel) is code editor
+      // - Right side (second panel) is output panel
+      // - Dragging right should make the code editor (left) wider
+      codeEditorWidth = Math.min(Math.max(positionPercent, 20), 80);
+      outputPanelWidth = 100 - codeEditorWidth;
+    }
     
     // Apply width directly to DOM for instant feedback
     if (codeEditor && outputPanel) {
-      codeEditor.style.width = `${newWidth}%`;
-      outputPanel.style.width = `${100 - newWidth}%`;
+      codeEditor.style.width = `${codeEditorWidth}%`;
+      outputPanel.style.width = `${outputPanelWidth}%`;
     }
     
-    // Store the last width to apply to React state when dragging ends
-    window._dragData.lastWidth = newWidth;
+    // Store the width value for the codeEditor to apply to React state when dragging ends
+    // (this aligns with our state variable name "editorWidth")
+    window._dragData.lastWidth = codeEditorWidth;
     
-  }, [isDragging, isMobile]);
+  }, [isDragging, isMobile, isPanelsSwapped]);
 
   const handleDragEnd = () => {
     // Update React state once at the end for better performance
@@ -936,6 +983,15 @@ function CollaborativeApp() {
     [isInRoom, roomId, language.id]
   );
 
+  // Function to swap the panels (code editor and output panel)
+  const swapPanels = useCallback(() => {
+    const newSwappedState = !isPanelsSwapped;
+    setIsPanelsSwapped(newSwappedState);
+    
+    // Store preference in localStorage
+    localStorage.setItem('panelsSwapped', newSwappedState.toString());
+  }, [isPanelsSwapped]);
+
 
   return (
     <div className={`h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${theme === 'dark' ? 'dark-mode' : 'light-mode'}`}>
@@ -989,99 +1045,217 @@ function CollaborativeApp() {
       </div>
       
       <div className="flex flex-1 overflow-hidden">
-        <div 
-          id="code-editor"
-          style={{ 
-            width: isMobile ? '100%' : `${editorWidth}%`,
-            transition: 'width 0.15s ease',
-            willChange: isDragging ? 'width' : 'auto'
-          }}
-          className={`w-full h-full border-r border-gray-200 dark:border-gray-700 ${
-            mobileView === 'output' ? 'hidden md:block' : 'block'
-          } ${isMobile ? 'pb-12' : ''}`}
-        >
-          <ErrorBoundary fallback={<div className="p-4 text-red-500">Error loading editor. Please refresh the page.</div>}>
-            <CodeEditor
-              key={editorKey} // Add a key to recreate component when room changes
-              code={code}
-              setCode={handleCodeChange}
-              language={language.value}
-              theme={theme}
-              onRunCode={handleRunCode}
-              readOnly={isInRoom && !checkPermission('EDIT_CODE')}
-            />
-          </ErrorBoundary>
-        </div>
-        
-        {/* Draggable divider */}
-        {!isMobile && (
-          <div
-            className="w-1 bg-gray-300 dark:bg-gray-600 hover:bg-blue-400 dark:hover:bg-blue-600 cursor-col-resize flex-shrink-0 relative group transition-colors duration-150 draggable-divider"
-            onMouseDown={handleDragStart}
-            onTouchStart={handleDragStart}
-            title="Drag to resize panels"
-            aria-label="Drag to resize panels"
-            style={{ 
-              touchAction: 'none', /* Prevent scrolling during touch drag */
-              willChange: 'background-color',
-              zIndex: 30 /* Ensure divider is above other elements */
-            }}
-          >
-            {/* Hover active area (invisible, wider for easier targeting) */}
-            <div className="absolute inset-0 w-6 -translate-x-1/2 group-hover:bg-blue-300/20 dark:group-hover:bg-blue-700/20"></div>
+        {!isPanelsSwapped ? (
+          // Default layout: Code Editor on the left, Output Panel on the right
+          <>
+            <div 
+              id="code-editor"
+              style={{ 
+                width: isMobile ? '100%' : `${editorWidth}%`,
+                transition: 'width 0.15s ease',
+                willChange: isDragging ? 'width' : 'auto'
+              }}
+              className={`w-full h-full border-r border-gray-200 dark:border-gray-700 ${
+                mobileView === 'output' ? 'hidden md:block' : 'block'
+              } ${isMobile ? 'pb-12' : ''}`}
+            >
+              <ErrorBoundary fallback={<div className="p-4 text-red-500">Error loading editor. Please refresh the page.</div>}>
+                <CodeEditor
+                  key={editorKey} // Add a key to recreate component when room changes
+                  code={code}
+                  setCode={handleCodeChange}
+                  language={language.value}
+                  theme={theme}
+                  onRunCode={handleRunCode}
+                  readOnly={isInRoom && !checkPermission('EDIT_CODE')}
+                />
+              </ErrorBoundary>
+            </div>
             
-            {/* Elegant drag handle design */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center h-16 pointer-events-none">
-              <div className="w-1 h-8 rounded-full bg-gray-400 dark:bg-gray-500 group-hover:bg-blue-500 dark:group-hover:bg-blue-400 transition-colors duration-150 relative">
-                {/* Pulse animation ring for the handle when hint is showing */}
+            {/* Draggable divider */}
+            {!isMobile && (
+              <div
+                className="w-1 bg-gray-300 dark:bg-gray-600 hover:bg-blue-400 dark:hover:bg-blue-600 cursor-col-resize flex-shrink-0 relative group transition-colors duration-150 draggable-divider"
+                onMouseDown={handleDragStart}
+                onTouchStart={handleDragStart}
+                onDoubleClick={swapPanels}
+                title={isPanelsSwapped ? "Drag to resize panels | Double-click to restore" : "Drag to resize panels | Double-click to swap"}
+                aria-label="Drag to resize panels | Double-click to swap panels"
+                style={{ 
+                  touchAction: 'none', /* Prevent scrolling during touch drag */
+                  willChange: 'background-color',
+                  zIndex: 30 /* Ensure divider is above other elements */
+                }}
+              >
+                {/* Hover active area (invisible, wider for easier targeting) */}
+                <div className="absolute inset-0 w-6 -translate-x-1/2 group-hover:bg-blue-300/20 dark:group-hover:bg-blue-700/20"></div>
+                
+                {/* Elegant drag handle design */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center h-16 pointer-events-none">
+                  <div className="w-1 h-8 rounded-full bg-gray-400 dark:bg-gray-500 group-hover:bg-blue-500 dark:group-hover:bg-blue-400 transition-colors duration-150 relative">
+                    {/* Pulse animation ring for the handle when hint is showing */}
+                    {(showDividerHint || showSwapHint) && (
+                      <div className="absolute -inset-2 rounded-full animate-ping bg-blue-500/40 dark:bg-blue-400/40"></div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Tooltip on hover */}
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-50 tooltip-hint">
+                  {isPanelsSwapped ? "Double-click to restore panels" : "Double-click to swap panels"}
+                </div>
+                
+                {/* Subtle animated hint that shows briefly */}
                 {showDividerHint && (
-                  <div className="absolute -inset-2 rounded-full animate-ping bg-blue-500/40 dark:bg-blue-400/40"></div>
+                  <div className="absolute top-1/2 left-0 -translate-y-1/2 bg-blue-500/90 text-white text-xs font-medium rounded-r py-1 px-2 shadow-md z-50 whitespace-nowrap pointer-events-none flex items-center space-x-1 backdrop-blur-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span>Drag</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                )}
+                
+                {/* Second hint for panel swapping */}
+                {showSwapHint && !showDividerHint && (
+                  <div className="absolute top-1/2 left-0 -translate-y-1/2 bg-green-500/90 text-white text-xs font-medium rounded-r py-1 px-2 shadow-md z-50 whitespace-nowrap pointer-events-none flex items-center space-x-1 backdrop-blur-sm">
+                    <span>Double-click to swap</span>
+                  </div>
                 )}
               </div>
+            )}
+            
+            <div 
+              id="output-panel"
+              style={{ 
+                width: isMobile ? '100%' : `${100 - editorWidth}%`,
+                transition: 'width 0.15s ease',
+                willChange: isDragging ? 'width' : 'auto'
+              }}
+              className={`w-full h-full ${
+                mobileView === 'code' ? 'hidden md:block' : 'block'
+              } ${isMobile ? 'pb-12' : ''}`}
+            >
+              <OutputPanel 
+                output={output} 
+                input={input} 
+                setInput={setInput} 
+                loading={loading}
+                error={error}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                readOnly={isInRoom && !checkPermission('RUN_CODE')}
+              />
+            </div>
+          </>
+        ) : (
+          // Swapped layout: Output Panel on the left, Code Editor on the right
+          <>
+            <div 
+              id="output-panel"
+              style={{ 
+                width: isMobile ? '100%' : `${100 - editorWidth}%`,
+                transition: 'width 0.15s ease',
+                willChange: isDragging ? 'width' : 'auto'
+              }}
+              className={`w-full h-full border-r border-gray-200 dark:border-gray-700 ${
+                mobileView === 'code' ? 'hidden md:block' : 'block'
+              } ${isMobile ? 'pb-12' : ''}`}
+            >
+              <OutputPanel 
+                output={output} 
+                input={input} 
+                setInput={setInput} 
+                loading={loading}
+                error={error}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                readOnly={isInRoom && !checkPermission('RUN_CODE')}
+              />
             </div>
             
-            {/* Tooltip on hover */}
-            <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-50 tooltip-hint">
-              Drag to resize panels
-            </div>
-            
-            {/* Subtle animated hint that shows briefly */}
-            {showDividerHint && (
-              <div className="absolute top-1/2 left-0 -translate-y-1/2 bg-blue-500/90 text-white text-xs font-medium rounded-r py-1 px-2 shadow-md z-50 whitespace-nowrap pointer-events-none flex items-center space-x-1 backdrop-blur-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                <span>Drag</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+            {/* Draggable divider (when swapped) */}
+            {!isMobile && (
+              <div
+                className="w-1 bg-gray-300 dark:bg-gray-600 hover:bg-blue-400 dark:hover:bg-blue-600 cursor-col-resize flex-shrink-0 relative group transition-colors duration-150 draggable-divider"
+                onMouseDown={handleDragStart}
+                onTouchStart={handleDragStart}
+                onDoubleClick={swapPanels}
+                title={isPanelsSwapped ? "Drag to resize panels | Double-click to restore" : "Drag to resize panels | Double-click to swap"}
+                aria-label="Drag to resize panels | Double-click to swap panels"
+                style={{ 
+                  touchAction: 'none', /* Prevent scrolling during touch drag */
+                  willChange: 'background-color',
+                  zIndex: 30 /* Ensure divider is above other elements */
+                }}
+              >
+                {/* Hover active area (invisible, wider for easier targeting) */}
+                <div className="absolute inset-0 w-6 -translate-x-1/2 group-hover:bg-blue-300/20 dark:group-hover:bg-blue-700/20"></div>
+                
+                {/* Elegant drag handle design */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center h-16 pointer-events-none">
+                  <div className="w-1 h-8 rounded-full bg-gray-400 dark:bg-gray-500 group-hover:bg-blue-500 dark:group-hover:bg-blue-400 transition-colors duration-150 relative">
+                    {/* Pulse animation ring for the handle when hint is showing */}
+                    {(showDividerHint || showSwapHint) && (
+                      <div className="absolute -inset-2 rounded-full animate-ping bg-blue-500/40 dark:bg-blue-400/40"></div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Tooltip on hover */}
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-50 tooltip-hint">
+                  {isPanelsSwapped ? "Double-click to restore panels" : "Double-click to swap panels"}
+                </div>
+                
+                {/* Subtle animated hint that shows briefly */}
+                {showDividerHint && (
+                  <div className="absolute top-1/2 left-0 -translate-y-1/2 bg-blue-500/90 text-white text-xs font-medium rounded-r py-1 px-2 shadow-md z-50 whitespace-nowrap pointer-events-none flex items-center space-x-1 backdrop-blur-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span>Drag</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                )}
+                
+                {/* Second hint for panel swapping */}
+                {showSwapHint && !showDividerHint && (
+                  <div className="absolute top-1/2 left-0 -translate-y-1/2 bg-green-500/90 text-white text-xs font-medium rounded-r py-1 px-2 shadow-md z-50 whitespace-nowrap pointer-events-none flex items-center space-x-1 backdrop-blur-sm">
+                    <span>Double-click to swap</span>
+                  </div>
+                )}
               </div>
             )}
-          </div>
+            
+            <div 
+              id="code-editor"
+              style={{ 
+                width: isMobile ? '100%' : `${editorWidth}%`,
+                transition: 'width 0.15s ease',
+                willChange: isDragging ? 'width' : 'auto'
+              }}
+              className={`w-full h-full ${
+                mobileView === 'output' ? 'hidden md:block' : 'block'
+              } ${isMobile ? 'pb-12' : ''}`}
+            >
+              <ErrorBoundary fallback={<div className="p-4 text-red-500">Error loading editor. Please refresh the page.</div>}>
+                <CodeEditor
+                  key={editorKey} // Add a key to recreate component when room changes
+                  code={code}
+                  setCode={handleCodeChange}
+                  language={language.value}
+                  theme={theme}
+                  onRunCode={handleRunCode}
+                  readOnly={isInRoom && !checkPermission('EDIT_CODE')}
+                />
+              </ErrorBoundary>
+            </div>
+          </>
         )}
-        
-        <div 
-          id="output-panel"
-          style={{ 
-            width: isMobile ? '100%' : `${100 - editorWidth}%`,
-            transition: 'width 0.15s ease',
-            willChange: isDragging ? 'width' : 'auto'
-          }}
-          className={`w-full h-full ${
-            mobileView === 'code' ? 'hidden md:block' : 'block'
-          } ${isMobile ? 'pb-12' : ''}`}
-        >
-          <OutputPanel 
-            output={output} 
-            input={input} 
-            setInput={setInput} 
-            loading={loading}
-            error={error}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            readOnly={isInRoom && !checkPermission('RUN_CODE')}
-          />
-        </div>
         
         {isInRoom && (
           <UserPanel 
