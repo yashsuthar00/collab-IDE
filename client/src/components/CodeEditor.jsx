@@ -9,6 +9,7 @@ import {
   monacoChangeToOp, applyOps, transformOps, 
   offsetToPosition 
 } from '../utils/ot';
+import { Maximize2, Minimize2, Expand, RefreshCw } from 'lucide-react';
 
 // Helper function to generate random colors for user cursors
 const getRandomColor = () => {
@@ -60,6 +61,11 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
   
   const [showCharsBar, setShowCharsBar] = useState(window.innerWidth < 1024);
   const [remoteUserCursors, setRemoteUserCursors] = useState(new Map());
+  const [showSpecialChars, setShowSpecialChars] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   // Function to get a consistent color for a user
   const getUserColor = useCallback((userId) => {
@@ -963,6 +969,55 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     };
   };
 
+  // Toggle fullscreen mode
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
+  // Toggle browser fullscreen mode
+  const toggleBrowserFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+      setIsBrowserFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+      setIsBrowserFullscreen(false);
+    }
+  };
+
+  // Handle ESC key to exit all fullscreen modes
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        }
+        if (isBrowserFullscreen) {
+          setIsBrowserFullscreen(false);
+        }
+      }
+    };
+
+    // Listen for fullscreenchange event
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsBrowserFullscreen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isFullscreen, isBrowserFullscreen]);
+
   // Flag unmounting to prevent state updates
   useEffect(() => {
     // Capture current timeout values
@@ -990,11 +1045,109 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     };
   }, []);
 
+  // Reset confirmation dialog component within CodeEditor component
+  function ResetConfirmationDialog({ isOpen, onClose, onConfirm }) {
+    if (!isOpen) return null;
+    
+    return (
+      <div 
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm transition-opacity duration-200" 
+        onClick={onClose}
+      >
+        <div 
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md transform transition-all duration-200 scale-100 opacity-100"
+          onClick={(e) => e.stopPropagation()} // Prevent clicks inside from closing
+        >
+          <div className="mb-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Reset Code Editor</h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Are you sure you want to reset the code editor? This will completely blank the editor and cannot be undone.
+            </p>
+          </div>
+          
+          <div className="mt-6 flex justify-end space-x-3">
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-gray-400 transition-colors"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+              onClick={onConfirm}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle reset code button click
+  const handleResetClick = () => {
+    if (readOnly || (isInRoom && !['owner', 'editor'].includes(currentUser?.accessLevel))) {
+      return; // Don't allow reset in read-only mode or without proper permissions
+    }
+    setIsResetConfirmOpen(true);
+  };
+  
+  // Function to actually reset the code
+  const resetCode = () => {
+    if (editorRef.current) {
+      // Set editor content to completely blank
+      editorRef.current.setValue('');
+      
+      // Update our references
+      codeRef.current = '';
+      
+      // Update outer component state
+      setCode('');
+      
+      // Close dialog
+      setIsResetConfirmOpen(false);
+    }
+  };
+
   return (
-    <div className="h-full flex flex-col relative">
+    <div className={`h-full flex flex-col relative ${isFullscreen ? 'fullscreen' : ''}`}>
+      {/* Fullscreen toggle button */}
+      <button 
+        onClick={toggleFullscreen}
+        className="absolute top-3 right-3 bg-opacity-90 z-20 rounded-md p-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 hover:bg-gray-200/70 dark:hover:bg-gray-700/70"
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      >
+        {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+      </button>
+
+      {/* Browser fullscreen toggle button */}
+      <button 
+        onClick={toggleBrowserFullscreen}
+        className="absolute top-3 right-12 bg-opacity-90 z-20 rounded-md p-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 hover:bg-gray-200/70 dark:hover:bg-gray-700/70"
+        aria-label={isBrowserFullscreen ? "Exit browser fullscreen" : "Enter browser fullscreen"}
+      >
+        <Expand size={16} />
+      </button>
+      
+      {/* Reset code button */}
+      {!readOnly && (
+        <button 
+          onClick={handleResetClick}
+          className="absolute top-3 right-21 bg-opacity-90 z-20 rounded-md p-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 hover:bg-gray-200/70 dark:hover:bg-gray-700/70"
+          aria-label="Reset code editor"
+          title="Reset code editor to blank"
+          disabled={isInRoom && !['owner', 'editor'].includes(currentUser?.accessLevel)}
+          style={{ right: '5.5rem' }}
+        >
+          <RefreshCw size={16} />
+        </button>
+      )}
+
       {/* Redesigned read-only indicator - more subtle and modern */}
       {readOnly && (
-        <div className="absolute top-3 right-3 bg-opacity-90 z-10 rounded-md px-2.5 py-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700">
+        <div className="absolute top-3 right-21 bg-opacity-90 z-10 rounded-md px-2.5 py-1.5 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700">
           <div className="h-2 w-2 rounded-full bg-amber-400 dark:bg-amber-500 mr-2"></div>
           <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Read-only</span>
         </div>
@@ -1045,6 +1198,13 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
           />
         </div>
       )}
+
+      {/* Reset confirmation dialog */}
+      <ResetConfirmationDialog 
+        isOpen={isResetConfirmOpen}
+        onClose={() => setIsResetConfirmOpen(false)}
+        onConfirm={resetCode}
+      />
     </div>
   );
 }

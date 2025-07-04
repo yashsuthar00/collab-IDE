@@ -1,8 +1,10 @@
-import { Terminal, MessageSquare, LockIcon } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { Terminal, MessageSquare, LockIcon, Maximize2, Minimize2, Expand } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 function OutputPanel({ output, input, setInput, loading, error, activeTab, setActiveTab, readOnly = false }) {
   const textareaRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
 
   // Handle textarea resize for better mobile experience
   const handleTextareaResize = () => {
@@ -19,8 +21,75 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
     }
   }, [input, activeTab]);
 
+  // Toggle fullscreen mode
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+  
+  // Toggle browser fullscreen mode
+  const toggleBrowserFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+      setIsBrowserFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+      setIsBrowserFullscreen(false);
+    }
+  };
+
+  // Handle ESC key to exit all fullscreen modes
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        }
+        if (isBrowserFullscreen) {
+          setIsBrowserFullscreen(false);
+        }
+      }
+    };
+
+    // Listen for fullscreenchange event
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsBrowserFullscreen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isFullscreen, isBrowserFullscreen]);
+
   return (
-    <div className="output-panel h-full flex flex-col relative">
+    <div className={`output-panel h-full flex flex-col relative ${isFullscreen ? 'fullscreen' : ''}`}>
+      {/* Fullscreen toggle button */}
+      <button 
+        onClick={toggleFullscreen}
+        className="absolute top-2 right-2 z-20 p-1.5 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 bg-opacity-90 backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700"
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      >
+        {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+      </button>
+      
+      {/* Browser fullscreen toggle button */}
+      <button 
+        onClick={toggleBrowserFullscreen}
+        className="absolute top-2 right-11 z-20 p-1.5 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 bg-opacity-90 backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700"
+        aria-label={isBrowserFullscreen ? "Exit browser fullscreen" : "Enter browser fullscreen"}
+      >
+        <Expand size={16} />
+      </button>
+      
       {/* Redesigned read-only indicator for output panel */}
       {readOnly && activeTab === 'input' && (
         <div className="absolute top-12 right-3 z-10 rounded-md px-2.5 py-1 flex items-center shadow-sm backdrop-blur-sm bg-gray-100/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700">
@@ -80,19 +149,19 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
             ) : output ? (
               <div className="font-mono text-xs md:text-sm whitespace-pre-wrap p-3 md:p-4 rounded-md bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 h-full overflow-auto text-gray-800 dark:text-gray-200">
                 {output.error ? (
-                  <span className="text-red-500">{output.error}</span>
+                  <span className="text-red-500 break-words whitespace-pre-wrap">{output.error}</span>
                 ) : (
                   <>
                     {output.stderr ? (
                       <div className="mb-4">
                         <div className="font-semibold text-red-600 dark:text-red-400 mb-2">Error Output:</div>
-                        <pre className="bg-red-50 dark:bg-red-900/20 p-2 md:p-3 rounded-md border border-red-200 dark:border-red-800/30 text-red-500 text-xs md:text-sm">{output.stderr}</pre>
+                        <pre className="bg-red-50 dark:bg-red-900/20 p-2 md:p-3 rounded-md border border-red-200 dark:border-red-800/30 text-red-500 text-xs md:text-sm whitespace-pre-wrap break-words overflow-x-auto">{output.stderr}</pre>
                       </div>
                     ) : null}
                     
                     {output.stdout ? (
                       <div className="mb-4">
-                        <pre className="bg-white dark:bg-gray-900 p-2 md:p-3 rounded-md border border-gray-200 dark:border-gray-700 text-xs md:text-sm">{output.stdout}</pre>
+                        <pre className="bg-white dark:bg-gray-900 p-2 md:p-3 rounded-md border border-gray-200 dark:border-gray-700 text-xs md:text-sm whitespace-pre-wrap break-words overflow-x-auto">{output.stdout}</pre>
                       </div>
                     ) : (
                       <div className="text-center text-gray-500 dark:text-gray-400 py-4">
@@ -124,7 +193,7 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
               onChange={(e) => !readOnly && setInput(e.target.value)}
               onFocus={handleTextareaResize}
               placeholder={readOnly ? "Input is locked in read-only mode" : "Enter program input here..."}
-              className={`w-full h-full p-3 md:p-4 font-mono text-xs md:text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none text-gray-800 dark:text-gray-200 ${readOnly ? 'cursor-not-allowed bg-gray-50/80 dark:bg-gray-900/50' : ''}`}
+              className={`w-full h-full p-3 md:p-4 font-mono text-xs md:text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words overflow-wrap-anywhere ${readOnly ? 'cursor-not-allowed bg-gray-50/80 dark:bg-gray-900/50' : ''}`}
               spellCheck="false"
               autoCapitalize="none"
               autoComplete="off"
