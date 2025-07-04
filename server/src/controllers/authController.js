@@ -163,7 +163,7 @@ exports.googleCallback = (req, res) => {
     
     // Use direct URLs based on environment
     const frontendURL = process.env.NODE_ENV === 'production'
-      ? process.env.CLIENT_URL || 'https://colab-ide.vercel.app'  // Use env variable first
+      ? process.env.CLIENT_URL || 'https://collab-ide.yashsuthar.com'  // Use env variable first
       : 'http://localhost:5173';  // Direct local client URL
     
     // Redirect to frontend with token
@@ -171,7 +171,7 @@ exports.googleCallback = (req, res) => {
   } catch (error) {
     console.error('Google callback error:', error);
     const redirectURL = process.env.NODE_ENV === 'production'
-      ? `${process.env.CLIENT_URL || 'https://colab-ide.vercel.app'}/login?error=auth_failed`
+      ? `${process.env.CLIENT_URL || 'https://collab-ide.yashsuthar.com'}/login?error=auth_failed`
       : 'http://localhost:5173/login?error=auth_failed';
     res.redirect(redirectURL);
   }
@@ -194,7 +194,7 @@ exports.githubCallback = (req, res) => {
     
     // Use direct URLs based on environment
     const frontendURL = process.env.NODE_ENV === 'production'
-      ? process.env.CLIENT_URL || 'https://colab-ide.vercel.app'  // Use env variable first
+      ? process.env.CLIENT_URL || 'https://collab-ide.yashsuthar.com'  // Use env variable first
       : 'http://localhost:5173';  // Direct local client URL
     
     // Redirect to frontend with token
@@ -202,7 +202,7 @@ exports.githubCallback = (req, res) => {
   } catch (error) {
     console.error('GitHub callback error:', error);
     const redirectURL = process.env.NODE_ENV === 'production'
-      ? `${process.env.CLIENT_URL || 'https://colab-ide.vercel.app'}/login?error=auth_failed`
+      ? `${process.env.CLIENT_URL || 'https://collab-ide.yashsuthar.com'}/login?error=auth_failed`
       : 'http://localhost:5173/login?error=auth_failed';
     res.redirect(redirectURL);
   }

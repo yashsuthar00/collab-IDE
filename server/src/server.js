@@ -59,6 +59,7 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:5173',
       'https://colab-ide.vercel.app',
+      'https://collab-ide.yashsuthar.com',
       'chrome-extension://dhgdbcdgbjjojnddeoicfebcidppkjdm' // Replace with your real extension ID
     ];
 

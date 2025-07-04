@@ -31,7 +31,7 @@ router.get('/google', (req, res, next) => {
 router.get('/google/callback', 
   passport.authenticate('google', { 
     failureRedirect: process.env.NODE_ENV === 'production' 
-      ? `${process.env.CLIENT_URL || 'https://colab-ide.vercel.app'}/login?error=auth_failed` 
+      ? `${process.env.CLIENT_URL || 'https://collab-ide.yashsuthar.com'}/login?error=auth_failed` 
       : 'http://localhost:5173/login?error=auth_failed',
     session: true
   }), 
@@ -43,7 +43,7 @@ router.get('/github', passport.authenticate('github', { scope: ['user:email'] })
 router.get('/github/callback', 
   passport.authenticate('github', { 
     failureRedirect: process.env.NODE_ENV === 'production' 
-      ? `${process.env.CLIENT_URL || 'https://colab-ide.vercel.app'}/login?error=auth_failed` 
+      ? `${process.env.CLIENT_URL || 'https://collab-ide.yashsuthar.com'}/login?error=auth_failed` 
       : 'http://localhost:5173/login?error=auth_failed',
     session: true
   }), 

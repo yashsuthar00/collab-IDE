@@ -1,5 +1,73 @@
 {
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://collab-ide.yashsuthar.com/$1",
+      "permanent": true,
+      "has": [
+        {
+          "type": "host",
+          "value": "colab-ide.vercel.app"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "destination": "https://collab-ide.yashsuthar.com/$1",
+      "permanent": true,
+      "has": [
+        {
+          "type": "host",
+          "value": "colab.yashsuthar.com"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "destination": "https://collab-ide.yashsuthar.com/$1",
+      "permanent": true,
+      "has": [
+        {
+          "type": "host",
+          "value": "collabide.yashsuthar.com"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "destination": "https://collab-ide.yashsuthar.com/$1",
+      "permanent": true,
+      "has": [
+        {
+          "type": "host",
+          "value": "collab.yashsuthar.com"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "destination": "https://collab-ide.yashsuthar.com/$1",
+      "permanent": true,
+      "has": [
+        {
+          "type": "host",
+          "value": "ide.yashsuthar.com"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "destination": "https://collab-ide.yashsuthar.com/$1",
+      "permanent": true,
+      "has": [
+        {
+          "type": "host",
+          "value": "code.yashsuthar.com"
+        }
+      ]
+    }
   ]
 }
