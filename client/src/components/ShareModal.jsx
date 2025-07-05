@@ -212,107 +212,105 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
     
     return `${lines} line${lines !== 1 ? 's' : ''}, ${chars} character${chars !== 1 ? 's' : ''}`;
   };
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm">
       <div 
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg mx-auto max-h-[90vh] flex flex-col"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-xs sm:max-w-md lg:max-w-lg mx-auto max-h-[95vh] sm:max-h-[90vh] flex flex-col"
       >
-        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-2">
-            <Share2 className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+            <Share2 className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200">
               Share Code
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
             aria-label="Close"
           >
-            <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            <X className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400" />
           </button>
-        </div>
-        
-        {/* Tabs - simplified for mobile */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700">
+        </div>        {/* Tabs - simplified for mobile */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
           {['link', 'email', 'code'].map((tab) => (
             <button
               key={tab}
-              className={`flex-1 py-2 text-xs sm:text-sm font-medium ${
+              className={`flex-1 py-3 sm:py-3 text-xs sm:text-sm font-medium transition-colors min-h-[44px] ${
                 activeTab === tab 
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400' 
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-white dark:bg-gray-800' 
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
               onClick={() => setActiveTab(tab)}
             >
-              <div className="flex items-center justify-center">
-                {tab === 'link' && <Link className="h-4 w-4 mr-1 sm:mr-2" />}
-                {tab === 'email' && <Mail className="h-4 w-4 mr-1 sm:mr-2" />}
-                {tab === 'code' && <Clipboard className="h-4 w-4 mr-1 sm:mr-2" />}
-                <span className="hidden xs:inline">
+              <div className="flex items-center justify-center px-1 sm:px-2">
+                {tab === 'link' && <Link className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />}
+                {tab === 'email' && <Mail className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />}
+                {tab === 'code' && <Clipboard className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />}
+                <span className="hidden sm:inline">
                   {tab === 'link' ? 'Share Link' : tab === 'email' ? 'Email' : 'Copy Code'}
                 </span>
-                <span className="xs:hidden">{tab === 'link' ? 'Link' : tab === 'email' ? 'Email' : 'Code'}</span>
+                <span className="sm:hidden truncate text-xs">
+                  {tab === 'link' ? 'Link' : tab === 'email' ? 'Email' : 'Code'}
+                </span>
               </div>
             </button>
           ))}
         </div>
-        
-        <div className="p-4 overflow-y-auto flex-1">
+          <div className="p-3 sm:p-4 overflow-y-auto flex-1">
           {activeTab === 'link' && (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <p className="mb-2 text-sm text-gray-600 dark:text-gray-300">
+                <p className="mb-2 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                   Share your {language?.name || ''} code with others by creating a link:
                 </p>
                 
-                <div className="flex items-center mt-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center mt-2 space-y-2 sm:space-y-0">
                   <input
                     type="text"
                     readOnly
                     value={shareableLink || 'Click "Generate Link" to create a shareable link'}
                     onClick={(e) => shareableLink && e.target.select()}
-                    className="flex-1 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-l-md bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none"
+                    className="flex-1 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md sm:rounded-l-md sm:rounded-r-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none text-xs sm:text-sm"
                   />
                   <button
                     onClick={shareableLink ? handleCopyLink : createShareableLink}
                     disabled={isLoading}
-                    className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-blue-800 text-white px-4 py-2 rounded-r-md flex items-center transition-colors"
+                    className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-blue-800 text-white px-3 sm:px-4 py-2 rounded-md sm:rounded-l-none sm:rounded-r-md flex items-center justify-center transition-colors text-xs sm:text-sm"
                   >
                     {isLoading ? (
-                      <Loader className="h-4 w-4 animate-spin" />
+                      <Loader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                     ) : shareableLink ? (
                       linkCopied ? (
                         <>
-                          <Check className="h-4 w-4 mr-1" />
-                          <span>Copied!</span>
+                          <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                          <span className="hidden sm:inline">Copied!</span>
+                          <span className="sm:hidden">✓</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4 mr-1" />
+                          <Copy className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                           <span>Copy</span>
                         </>
                       )
                     ) : (
                       <>
-                        <Link className="h-4 w-4 mr-1" />
-                        <span>Generate Link</span>
+                        <Link className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                        <span className="hidden sm:inline">Generate Link</span>
+                        <span className="sm:hidden">Generate</span>
                       </>
                     )}
                   </button>
-                </div>
-
-                {shareLinkError && (
-                  <div className="mt-2 p-2 text-red-500 text-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+                </div>                {shareLinkError && (
+                  <div className="mt-2 p-2 text-red-500 text-xs sm:text-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
                     {shareLinkError}
                   </div>
                 )}
 
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
+                <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-800 text-xs sm:text-sm text-blue-700 dark:text-blue-300">
                   <div className="flex">
-                    <Info className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
+                    <Info className="h-3 w-3 sm:h-4 sm:w-4 mr-2 flex-shrink-0 mt-0.5" />
                     <p>
                       Anyone with this link will be able to view your code. The link will expire after 7 days.
                     </p>
@@ -321,8 +319,8 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
               </div>
               
               <div className="mt-2">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code Preview:</p>
-                <div className="bg-gray-100 dark:bg-gray-900 p-3 rounded-md font-mono text-xs border border-gray-200 dark:border-gray-700 overflow-hidden whitespace-pre-wrap max-h-32">
+                <p className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code Preview:</p>
+                <div className="bg-gray-100 dark:bg-gray-900 p-2 sm:p-3 rounded-md font-mono text-xs border border-gray-200 dark:border-gray-700 overflow-hidden whitespace-pre-wrap max-h-24 sm:max-h-32">
                   {getCodePreview()}
                 </div>
                 <div className="flex justify-between mt-1">
@@ -340,23 +338,21 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
                 </div>
                 
                 {showFullCode && (
-                  <div className="bg-gray-100 dark:bg-gray-900 p-3 mt-2 rounded-md font-mono text-xs border border-gray-200 dark:border-gray-700 overflow-auto max-h-60 whitespace-pre">
+                  <div className="bg-gray-100 dark:bg-gray-900 p-2 sm:p-3 mt-2 rounded-md font-mono text-xs border border-gray-200 dark:border-gray-700 overflow-auto max-h-40 sm:max-h-60 whitespace-pre">
                     {code}
                   </div>
                 )}
               </div>
             </div>
-          )}
-
-          {activeTab === 'email' && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-gray-300">
+          )}          {activeTab === 'email' && (
+            <div className="space-y-3 sm:space-y-4">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                 Share your code with others via email:
               </p>
               
               <form onSubmit={handleEmailShare} className="space-y-3">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Recipient Email
                   </label>
                   <input
@@ -366,12 +362,12 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter email address"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="message" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Message (Optional)
                   </label>
                   <textarea
@@ -380,12 +376,12 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
                     onChange={(e) => setMessage(e.target.value)}
                     rows="3"
                     placeholder="Add a personal message"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                   ></textarea>
                 </div>
                 
-                <div className="flex items-start space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <div className="flex items-start space-x-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                  <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
                   <p>
                     The recipient will receive your code as both an attachment and in the email body.
                   </p>
@@ -394,11 +390,11 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-blue-800 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+                  className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-blue-800 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 text-xs sm:text-sm"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center">
-                      <Loader className="h-4 w-4 animate-spin mr-2" />
+                      <Loader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin mr-2" />
                       Sending...
                     </div>
                   ) : (
@@ -407,11 +403,9 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
                 </button>
               </form>
             </div>
-          )}
-
-          {activeTab === 'code' && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+          )}          {activeTab === 'code' && (
+            <div className="space-y-3 sm:space-y-4">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-2">
                 Copy your {language?.name || ''} code directly to share elsewhere:
               </p>
               
@@ -420,26 +414,26 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
                   value={typeof code === 'string' ? code : String(code || '')}
                   readOnly
                   onClick={(e) => e.target.select()}
-                  rows="10"
-                  className="w-full font-mono text-xs p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none"
+                  rows="8"
+                  className="w-full font-mono text-xs p-2 sm:p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none resize-none"
                 ></textarea>
                 
                 <div className="absolute top-2 right-2">
                   <button
                     onClick={handleCopyCode}
-                    className={`p-2 rounded-md flex items-center ${
+                    className={`p-1.5 sm:p-2 rounded-md flex items-center ${
                       codeCopied 
                         ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
                         : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                     title="Copy code"
                   >
-                    {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {codeCopied ? <Check className="h-3 w-3 sm:h-4 sm:w-4" /> : <Copy className="h-3 w-3 sm:h-4 sm:w-4" />}
                   </button>
                 </div>
               </div>
               
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm space-y-1 sm:space-y-0">
                 <span className="text-gray-500 dark:text-gray-400">
                   {getCodeInfo()}
                 </span>
@@ -453,15 +447,14 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
             </div>
           )}
         </div>
-        
-        <div className="border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center bg-gray-50 dark:bg-gray-900 rounded-b-lg">
+          <div className="border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center bg-gray-50 dark:bg-gray-900 rounded-b-lg">
           <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:flex items-center">
-            <Info className="h-4 w-4 mr-1" />
+            <Info className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
             Sharing from Collab IDE
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors ml-auto"
+            className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors ml-auto"
           >
             Close
           </button>

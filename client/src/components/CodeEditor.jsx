@@ -9,7 +9,7 @@ import {
   monacoChangeToOp, applyOps, transformOps, 
   offsetToPosition 
 } from '../utils/ot';
-import { Maximize2, Minimize2, Expand, RefreshCw } from 'lucide-react';
+import { Maximize2, Minimize2, Expand, Eraser } from 'lucide-react';
 
 // Helper function to generate random colors for user cursors
 const getRandomColor = () => {
@@ -1141,7 +1141,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
           disabled={isInRoom && !['owner', 'editor'].includes(currentUser?.accessLevel)}
           style={{ right: '5.5rem' }}
         >
-          <RefreshCw size={16} />
+          <Eraser size={16} />
         </button>
       )}
 

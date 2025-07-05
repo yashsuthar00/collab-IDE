@@ -103,18 +103,18 @@ const FriendsMenu = ({ isMobile = false }) => {
 
   return (
     <>
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-1 lg:space-x-2">
         {/* Friends button */}
         <button
           onClick={() => {
             setActivePanelTab('friends');
             setIsFriendsPanelOpen(true);
           }}
-          className="p-2 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 relative"
+          className="p-1.5 lg:p-2 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 relative"
           title="Friends"
           aria-label="Friends"
         >
-          <Users className="w-5 h-5" />
+          <Users className="w-4 h-4 lg:w-5 lg:h-5" />
         </button>
 
         {/* Notifications button */}
@@ -122,11 +122,11 @@ const FriendsMenu = ({ isMobile = false }) => {
           <button
             ref={notificationButtonRef}
             onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
-            className="p-2 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 relative"
+            className="p-1.5 lg:p-2 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 relative"
             title="Notifications"
             aria-label="Notifications"
           >
-            <Bell className="w-5 h-5" />
+            <Bell className="w-4 h-4 lg:w-5 lg:h-5" />
             {totalNotifications > 0 && (
               <NotificationBadge count={totalNotifications} className="absolute -top-1 -right-1" />
             )}

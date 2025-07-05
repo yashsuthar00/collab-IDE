@@ -102,6 +102,32 @@ function Navbar({
     };
   }, []);
 
+  // Close mobile menu when clicking outside the navbar
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const navbar = document.getElementById('navbar');
+      if (navbar && !navbar.contains(event.target) && menuOpen) {
+        setMenuOpen(false);
+      }
+    };
+
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      // Also close on escape key
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          setMenuOpen(false);
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+      
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleEscape);
+      };
+    }
+  }, [menuOpen]);
+
   // Add an effect to listen for the close-mobile-navbar event
   useEffect(() => {
     const handleCloseMobileMenu = () => {
@@ -136,25 +162,22 @@ function Navbar({
     };
   }, [menuOpen]);
 
-  return (
-    <nav id="navbar" className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 px-4 shadow-sm">
-      <div className="container mx-auto flex items-center justify-between">
-        <div className="flex items-center">
-          <div className="flex items-center space-x-2 text-xl font-bold text-blue-600 dark:text-blue-400">
-            <Code className="w-6 h-6" />
-            <span className="hidden sm:inline">Collab IDE</span>
-            <span className="sm:hidden">IDE</span>
+  return (    <nav id="navbar" className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-1 px-2 sm:py-1.5 sm:px-3 lg:py-2 lg:px-4 xl:py-2.5 xl:px-5 shadow-sm overflow-hidden">
+      <div className="w-full flex items-center justify-between max-w-none min-w-0">
+        <div className="flex items-center min-w-0 flex-shrink-0">
+          <div className="flex items-center space-x-1 lg:space-x-1.5 xl:space-x-2 text-sm sm:text-base lg:text-lg xl:text-xl font-bold text-blue-600 dark:text-blue-400 min-w-0">
+            <Code className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 xl:w-6 xl:h-6 flex-shrink-0" />
+            <span className="hidden sm:inline truncate min-w-0">Collab IDE</span>
+            <span className="sm:hidden truncate min-w-0">IDE</span>
           </div>
           
           <button 
-            className="ml-4 p-1 rounded-md md:hidden hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="ml-2 sm:ml-3 lg:ml-4 p-1 rounded-md md:hidden hover:bg-gray-100 dark:hover:bg-gray-800 flex-shrink-0"
             onClick={toggleMenu}
           >
-            {menuOpen ? <X size={20} /> : <MenuIcon size={20} />}
+            {menuOpen ? <X size={16} /> : <MenuIcon size={16} />}
           </button>
-        </div>
-
-        <div className="hidden md:flex items-center space-x-3">
+        </div>        <div className="hidden md:flex md:items-center md:gap-0.5 lg:gap-1 xl:gap-1.5 2xl:gap-2 flex-nowrap overflow-hidden min-w-0">
           {/* Friends Menu - Only show when user is authenticated */}
           {isAuthenticated && <FriendsMenu />}
 
@@ -163,20 +186,20 @@ function Navbar({
             <button
               id="login-button"
               onClick={handleAuthClick}
-              className="flex items-center px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="flex items-center px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap flex-shrink-0"
             >
-              <LogIn className="w-4 h-4 mr-1.5" />
-              Log in
+              <LogIn className="w-3 h-3 lg:w-4 lg:h-4 xl:w-4 xl:h-4 mr-0.5 lg:mr-1 xl:mr-1.5 flex-shrink-0" />
+              <span className="hidden lg:inline">Log in</span>
             </button>
           ) : (
-            <div className="relative" ref={userMenuRef}>
+            <div className="relative flex-shrink-0" ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center space-x-1 px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex items-center space-x-0.5 lg:space-x-1 xl:space-x-1 px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors max-w-[80px] lg:max-w-[100px] xl:max-w-[120px] 2xl:max-w-[140px] min-w-0"
               >
-                <UserAvatar user={user} size="sm" className="mr-1" />
-                <span className="truncate max-w-[100px]">{user?.username || user?.email}</span>
-                <ChevronDown className="w-4 h-4 ml-1" />
+                <UserAvatar user={user} size="sm" className="flex-shrink-0" />
+                <span className="truncate text-xs lg:text-sm xl:text-sm min-w-0">{user?.username || user?.email}</span>
+                <ChevronDown className="w-3 h-3 lg:w-4 lg:h-4 xl:w-4 xl:h-4 flex-shrink-0" />
               </button>
               {userMenuOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
@@ -205,50 +228,46 @@ function Navbar({
                 </div>
               )}
             </div>
-          )}
-
-          {!isInRoom ? (
+          )}          {!isInRoom ? (
             <button
               id="collaboration-button"
               onClick={handleJoinRoom}
               type="button"
-              className="flex items-center px-3 py-1.5 rounded-md text-sm border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+              className="flex items-center px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors whitespace-nowrap flex-shrink-0"
             >
-              <UserPlus className="w-4 h-4 mr-1" />
-              Join Room
+              <UserPlus className="w-3 h-3 lg:w-4 lg:h-4 xl:w-4 xl:h-4 mr-0.5 lg:mr-1 xl:mr-1.5 flex-shrink-0" />
+              <span className="hidden lg:inline">Join Room</span>
             </button>
           ) : (
             <>
-              <div id="room-info" className="px-2 py-1 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-md">
-                <div className="text-xs text-green-700 dark:text-green-300">Room: {currentUser?.name}</div>
+              <div id="room-info" className="px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-md max-w-[60px] lg:max-w-[80px] xl:max-w-[100px] 2xl:max-w-[120px] flex-shrink-0 min-w-0">
+                <div className="text-xs lg:text-sm xl:text-sm text-green-700 dark:text-green-300 truncate">Room: {currentUser?.name}</div>
               </div>
             
               <button
                 id="users-panel-button"
                 onClick={onOpenUserPanel}
-                className="flex items-center px-3 py-1.5 rounded-md text-sm border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                className="flex items-center px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors whitespace-nowrap flex-shrink-0"
               >
-                <Users className="w-4 h-4 mr-1" />
-                Users
+                <Users className="w-3 h-3 lg:w-4 lg:h-4 xl:w-4 xl:h-4 mr-0.5 lg:mr-1 xl:mr-1.5 flex-shrink-0" />
+                <span className="hidden lg:inline">Users</span>
               </button>
               
               <button
                 id="leave-room-button"
                 onClick={onLeaveRoom}
-                className="flex items-center px-3 py-1.5 rounded-md text-sm border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                className="flex items-center px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors whitespace-nowrap flex-shrink-0"
               >
-                <LogOut className="w-4 h-4 mr-1" />
-                Leave Room
+                <LogOut className="w-3 h-3 lg:w-4 lg:h-4 xl:w-4 xl:h-4 mr-0.5 lg:mr-1 xl:mr-1.5 flex-shrink-0" /> 
+                <span className="hidden lg:inline">Leave</span>
               </button>
             </>
-          )}
-
-          <div id="language-selector" className="flex items-center">
-            <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
+          )}          <div id="language-selector" className="flex items-center min-w-0 flex-shrink-0">
+            <Laptop className="w-3 h-3 lg:w-4 lg:h-4 xl:w-5 xl:h-5 text-gray-500 dark:text-gray-400 mr-0.5 lg:mr-1 xl:mr-2 flex-shrink-0" />
             <select
               value={language.id}
               onChange={handleLanguageChange}
-              className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block w-40 p-2"
+              className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-xs lg:text-sm xl:text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block w-16 md:w-20 lg:w-24 xl:w-28 2xl:w-32 p-0.5 lg:p-1 xl:p-1.5 2xl:p-2 min-w-0"
               disabled={isInRoom && !currentUser?.accessLevel === 'owner'}
             >
               {languageOptions.map((option) => (
@@ -257,24 +276,34 @@ function Navbar({
                 </option>
               ))}
             </select>
-          </div>
-
-          <button
+          </div>          <button
             id="auto-save-toggle"
             onClick={toggleAutoSave}
-            className={`flex items-center px-3 py-1.5 rounded-md text-sm border ${
+            className={`hidden xl:flex items-center px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm border ${
               autoSave 
                 ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300' 
                 : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-            } hover:bg-opacity-80 transition-colors`}
+            } hover:bg-opacity-80 transition-colors whitespace-nowrap flex-shrink-0`}
             aria-label={autoSave ? "Disable auto-save" : "Enable auto-save"}
             title={autoSave ? "Your code will be saved automatically" : "Your code will not persist after refresh"}
           >
-            <Save className={`w-4 h-4 mr-1 ${autoSave ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
-            {autoSave ? 'Auto-save On' : 'Auto-save Off'}
+            <Save className={`w-3 h-3 lg:w-4 lg:h-4 xl:w-4 xl:h-4 mr-0.5 lg:mr-1 xl:mr-1.5 flex-shrink-0 ${autoSave ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+            <span>Auto-save {autoSave ? 'On' : 'Off'}</span>
           </button>
 
-          {isAuthenticated && (
+          <button
+            id="auto-save-toggle-icon"
+            onClick={toggleAutoSave}
+            className={`flex xl:hidden items-center p-0.5 lg:p-1 rounded-md text-xs border ${
+              autoSave 
+                ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300' 
+                : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+            } hover:bg-opacity-80 transition-colors flex-shrink-0`}
+            aria-label={autoSave ? "Disable auto-save" : "Enable auto-save"}
+            title={autoSave ? "Your code will be saved automatically" : "Your code will not persist after refresh"}
+          >
+            <Save className={`w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0 ${autoSave ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+          </button>          {isAuthenticated && (
             <>
               <SaveFileButton 
                 onClick={onSaveFile} 
@@ -284,59 +313,80 @@ function Navbar({
               
               <button
                 onClick={onOpenFilesPanel}
-                className="flex items-center px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="hidden lg:flex items-center px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap flex-shrink-0"
               >
-                <FolderOpen className="w-4 h-4 mr-1.5" />
+                <FolderOpen className="w-3 h-3 lg:w-4 lg:h-4 xl:w-4 xl:h-4 mr-0.5 lg:mr-1 xl:mr-1.5 flex-shrink-0" />
                 Files
               </button>
               
               <button
-                onClick={onOpenRecentFiles}
-                className="flex items-center px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                onClick={onOpenFilesPanel}
+                className="lg:hidden flex items-center p-0.5 lg:p-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                title="Files"
               >
-                <FileText className="w-4 h-4 mr-1.5" />
+                <FolderOpen className="w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0" />
+              </button>
+              
+              <button
+                onClick={onOpenRecentFiles}
+                className="hidden lg:flex items-center px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                <FileText className="w-3 h-3 lg:w-4 lg:h-4 xl:w-4 xl:h-4 mr-0.5 lg:mr-1 xl:mr-1.5 flex-shrink-0" />
                 Recent
               </button>
+              
+              <button
+                onClick={onOpenRecentFiles}
+                className="lg:hidden flex items-center p-0.5 lg:p-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                title="Recent Files"
+              >
+                <FileText className="w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0" />
+              </button>
             </>
-          )}
-
-          <button
-            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+          )}          <button
+            className="hidden lg:flex items-center gap-0.5 lg:gap-1 xl:gap-1 px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 text-xs lg:text-sm xl:text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 whitespace-nowrap flex-shrink-0"
             title="Share code"
             onClick={handleShareClick} 
           >
-            <Share2 className="h-4 w-4" /> 
-            <span className="hidden md:block">Share</span>
+            <Share2 className="h-3 w-3 lg:h-4 lg:w-4 xl:h-4 xl:w-4 flex-shrink-0" /> 
+            <span>Share</span>
           </button>
           
           <button
+            className="lg:hidden flex items-center p-0.5 lg:p-1 rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex-shrink-0"
+            title="Share code"
+            onClick={handleShareClick}
+          >
+            <Share2 className="h-3 w-3 lg:h-4 lg:w-4 flex-shrink-0" />
+          </button>
+            <button
             id="theme-toggle"
             onClick={toggleTheme}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="p-0.5 lg:p-1 xl:p-1.5 2xl:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
             aria-label={theme === 'dark' ? "Switch to light mode" : "Switch to dark mode"}
             title={theme === 'dark' ? "Switch to light mode" : "Switch to dark mode"}
           >
             {theme === 'dark' ? 
-              <Sun className="w-5 h-5 text-yellow-400" /> : 
-              <Moon className="w-5 h-5 text-gray-700" />
+              <Sun className="w-3 h-3 lg:w-4 lg:h-4 xl:w-5 xl:h-5 text-yellow-400" /> : 
+              <Moon className="w-3 h-3 lg:w-4 lg:h-4 xl:w-5 xl:h-5 text-gray-700" />
             }
           </button>
 
           <button
             id="help-button"
             onClick={onStartTour}
-            className="p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+            className="p-0.5 lg:p-1 xl:p-1.5 2xl:p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
             aria-label="Show help"
             title="Show interactive tutorial"
           >
-            <HelpCircle className="w-5 h-5" />
+            <HelpCircle className="w-3 h-3 lg:w-4 lg:h-4 xl:w-5 xl:h-5" />
           </button>
 
           <button
             id="run-button"
             onClick={onRunCode}
             disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
-            className={`px-4 py-2 rounded-md flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${
+            className={`px-1.5 lg:px-2 xl:px-3 2xl:px-4 py-0.5 lg:py-1 xl:py-1.5 2xl:py-2 rounded-md flex items-center space-x-0.5 lg:space-x-1 xl:space-x-1.5 2xl:space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors flex-shrink-0 ${
               isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))
                 ? 'opacity-70 cursor-not-allowed'
                 : ''
@@ -345,47 +395,45 @@ function Navbar({
           >
             {isLoading ? (
               <>
-                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                <span>Running</span>
+                <div className="animate-spin h-3 w-3 lg:h-4 lg:w-4 xl:h-4 xl:w-4 border-2 border-white border-t-transparent rounded-full flex-shrink-0"></div>
+                <span className="text-xs lg:text-sm xl:text-sm whitespace-nowrap">Running</span>
               </>
             ) : (
               <>
-                <Play className="w-4 h-4" />
-                <span>Run</span>
-                <span className="text-xs opacity-75 hidden lg:inline ml-1">(Ctrl+Enter)</span>
+                <Play className="w-3 h-3 lg:w-4 lg:h-4 xl:w-4 xl:h-4 flex-shrink-0" />
+                <span className="text-xs lg:text-sm xl:text-sm whitespace-nowrap">Run</span>
+                <span className="text-xs lg:text-sm xl:text-sm opacity-75 hidden xl:inline ml-0.5">(Ctrl+Enter)</span>
               </>
             )}
           </button>
-        </div>
-
-        <div className="md:hidden flex space-x-1">
+        </div>        <div className="md:hidden flex items-center space-x-1 flex-shrink-0">
           {/* Mobile Friends Menu - only show when authenticated */}
           {isAuthenticated && <FriendsMenu isMobile={true} />}
           
           {/* Mobile Share Button */}
           <button
             onClick={handleShareClick}
-            className="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+            className="p-1 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
             aria-label="Share code"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="w-3 h-3 flex-shrink-0" />
           </button>
           
           {/* Mobile Auth Button */}
           {!isAuthenticated ? (
             <button
               onClick={handleAuthClick}
-              className="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+              className="p-1 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
               aria-label="Log in"
             >
-              <LogIn className="w-5 h-5" />
+              <LogIn className="w-3 h-3 flex-shrink-0" />
             </button>
           ) : (
             <button
               onClick={() => {
                 setMenuOpen(!menuOpen);
               }}
-              className="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 overflow-hidden"
+              className="p-1 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 overflow-hidden"
             >
               <UserAvatar user={user} size="sm" />
             </button>
@@ -403,7 +451,7 @@ function Navbar({
           <button
             onClick={handleRunClick}
             disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
-            className={`px-3 py-1.5 rounded-md flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors ${
+            className={`px-1.5 py-1 rounded-md flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors flex-shrink-0 ${
               isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))
                 ? 'opacity-70 cursor-not-allowed'
                 : ''
@@ -411,27 +459,25 @@ function Navbar({
             title="Run code"
           >
             {isLoading ? (
-              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+              <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full flex-shrink-0"></div>
             ) : (
-              <Play className="w-4 h-4" />
+              <Play className="w-3 h-3 flex-shrink-0" />
             )}
           </button>
         </div>
-      </div>
-
-      <div className={`md:hidden ${menuOpen ? 'block' : 'hidden'} pt-3 pb-2 space-y-3`}>
+      </div>      <div className={`md:hidden ${menuOpen ? 'block' : 'hidden'} max-h-[calc(100vh-80px)] overflow-y-auto pt-2 pb-2 space-y-2 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700`}>
         {/* Add this mobile login button */}
         {isAuthenticated && (
-          <div className="px-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-3 pb-2 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                 Logged in as {user.username || user.email}
               </span>
             </div>
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+              className="w-full flex items-center justify-center py-2 px-3 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
             >
               {isLoggingOut ? (
                 <>
@@ -449,16 +495,14 @@ function Navbar({
               )}
             </button>
           </div>
-        )}
-
-        <div className="px-2 space-y-2">
+        )}        <div className="px-3 space-y-2">
           {!isInRoom ? (
             <button
               onClick={handleJoinRoom}
               type="button"
-              className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+              className="w-full flex items-center justify-center py-2 px-3 rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
             >
-              <UserPlus className="w-4 h-4 mr-2" />
+              <UserPlus className="w-4 h-4 mr-2 flex-shrink-0" />
               Join Room
             </button>
           ) : (
@@ -469,9 +513,9 @@ function Navbar({
                   setMenuOpen(false);
                 }}
                 type="button"
-                className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+                className="w-full flex items-center justify-center py-2 px-3 rounded-md border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
               >
-                <Users className="w-4 h-4 mr-2" />
+                <Users className="w-4 h-4 mr-2 flex-shrink-0" />
                 Users ({currentUser?.name})
               </button>
               
@@ -481,21 +525,20 @@ function Navbar({
                   setMenuOpen(false);
                 }}
                 type="button"
-                className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+                className="w-full flex items-center justify-center py-2 px-3 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
               >
-                <LogOut className="w-4 h-4 mr-2" />
+                <LogOut className="w-4 h-4 mr-2 flex-shrink-0" />
                 Leave Room
               </button>
             </>
           )}
-        </div>
-    
-        <div className="flex items-center p-2">
-          <Laptop className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
+        </div>        <div className="flex items-center px-3 py-2 bg-gray-50 dark:bg-gray-800">
+          <Laptop className="w-4 h-4 text-gray-500 dark:text-gray-400 mr-2 flex-shrink-0" />
+          <label className="text-xs text-gray-600 dark:text-gray-400 mr-2 flex-shrink-0">Language:</label>
           <select
             value={language.id}
             onChange={handleLanguageChange}
-            className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 flex-1 p-2"
+            className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 flex-1 p-2 min-w-0"
             disabled={isInRoom && !currentUser?.accessLevel === 'owner'}
           >
             {languageOptions.map((option) => (
@@ -504,21 +547,19 @@ function Navbar({
               </option>
             ))}
           </select>
-        </div>
-
-        <div className="flex px-2 space-x-2">
+        </div><div className="flex px-3 space-x-2">
           <button
             onClick={toggleTheme}
-            className="flex-1 p-2 rounded-md flex justify-center items-center space-x-2 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="flex-1 py-2 px-3 rounded-md flex justify-center items-center space-x-2 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             {theme === 'dark' ? (
               <>
-                <Sun className="w-4 h-4 text-yellow-400 mr-1" />
+                <Sun className="w-4 h-4 text-yellow-400 mr-1 flex-shrink-0" />
                 <span className="text-sm">Light Mode</span>
               </>
             ) : (
               <>
-                <Moon className="w-4 h-4 text-gray-700 mr-1" />
+                <Moon className="w-4 h-4 text-gray-700 mr-1 flex-shrink-0" />
                 <span className="text-sm">Dark Mode</span>
               </>
             )}
@@ -526,56 +567,61 @@ function Navbar({
 
           <button
             onClick={toggleAutoSave}
-            className={`flex-1 p-2 rounded-md flex justify-center items-center space-x-1 border ${
+            className={`flex-1 py-2 px-3 rounded-md flex justify-center items-center space-x-1 border ${
               autoSave 
                 ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300' 
                 : 'border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
-            <Save className={`w-4 h-4 mr-1 ${autoSave ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+            <Save className={`w-4 h-4 mr-1 flex-shrink-0 ${autoSave ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
             <span className="text-sm">{autoSave ? 'Auto-save On' : 'Auto-save Off'}</span>
           </button>
-        </div>
-
-        {isAuthenticated && (
-          <div className="flex px-2 space-x-2">
+        </div>        {isAuthenticated && (
+          <div className="flex px-3 space-x-2">
             <button
-              onClick={onOpenFilesPanel}
-              className="flex-1 p-2 rounded-md flex justify-center items-center space-x-1 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => {
+                onOpenFilesPanel();
+                setMenuOpen(false);
+              }}
+              className="flex-1 py-2 px-3 rounded-md flex justify-center items-center space-x-1 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              <FolderOpen className="w-4 h-4 mr-1" />
+              <FolderOpen className="w-4 h-4 mr-1 flex-shrink-0" />
               <span className="text-sm">Files</span>
             </button>
             
             <button
-              onClick={onOpenRecentFiles}
-              className="flex-1 p-2 rounded-md flex justify-center items-center space-x-1 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => {
+                onOpenRecentFiles();
+                setMenuOpen(false);
+              }}
+              className="flex-1 py-2 px-3 rounded-md flex justify-center items-center space-x-1 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              <FileText className="w-4 h-4 mr-1" />
+              <FileText className="w-4 h-4 mr-1 flex-shrink-0" />
               <span className="text-sm">Recent</span>
             </button>
           </div>
-        )}
-
-        <div className="px-2 pb-2">
+        )}        <div className="px-3 pb-2">
           <button
-            onClick={handleShareClick}
-            className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            onClick={() => {
+              handleShareClick();
+              setMenuOpen(false);
+            }}
+            className="w-full flex items-center justify-center py-2 px-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
-            <Share2 className="w-4 h-4 mr-2" />
+            <Share2 className="w-4 h-4 mr-2 flex-shrink-0" />
             Share Code
           </button>
         </div>
 
-        <div className="flex justify-center px-2">
+        <div className="flex justify-center px-3">
           <button
             onClick={() => {
               onStartTour();
               setMenuOpen(false);
             }}
-            className="w-full flex items-center justify-center py-2 px-4 rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+            className="w-full flex items-center justify-center py-2 px-3 rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
           >
-            <HelpCircle className="w-4 h-4 mr-2" />
+            <HelpCircle className="w-4 h-4 mr-2 flex-shrink-0" />
             Show Tutorial
           </button>
         </div>

@@ -153,6 +153,220 @@
   }
 }
 
+/* Additional responsive navbar styling */
+@media (max-width: 640px) {
+  .navbar-component {
+    padding: 0.5rem 0.75rem !important;
+  }
+  
+  .navbar-component .container {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Make the navbar buttons more responsive */
+@media (max-width: 375px) {
+  .navbar-component .container {
+    gap: 4px !important;
+  }
+  
+  .navbar-component button,
+  .navbar-component .md\:hidden button {
+    padding: 4px !important;
+  }
+  
+  /* Scale down icons for very small screens */
+  .navbar-component .md\:hidden button svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Handle overflows on medium screens */
+@media (min-width: 768px) and (max-width: 1100px) {
+  .navbar-component .md\:flex.md\:flex-wrap {
+    justify-content: flex-end;
+    gap: 4px !important;
+  }
+  
+  /* Remove border on some buttons to save space */
+  .navbar-component .md\:flex button:not(.border-blue-300):not(.border-red-300):not(.border-green-300):not(#run-button) {
+    border-color: transparent !important;
+    background-color: transparent !important;
+  }
+}
+
+/* Medium screens adjustments */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .navbar-component {
+    padding: 0.5rem 1rem !important;
+  }
+  
+  /* Adjust button spacing */
+  .navbar-component .md\:flex.items-center.space-x-3 {
+    gap: 0.5rem !important;
+  }
+  
+  /* Make buttons smaller on medium screens */
+  .navbar-component .md\:flex button:not(#run-button),
+  .navbar-component .md\:flex select {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Enhanced Responsive Navbar Improvements */
+@media (max-width: 768px) {
+  /* Navbar mobile optimizations */
+  .navbar-component .container {
+    gap: 4px !important;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  
+  /* Ensure mobile menu doesn't overflow */
+  .navbar-component .md\:hidden.block {
+    position: relative;
+    background-color: inherit;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Better mobile button spacing */
+  .navbar-component .md\:hidden .space-x-1 > * + * {
+    margin-left: 4px;
+  }
+  
+  /* Prevent text wrapping in mobile buttons */
+  .navbar-component button {
+    white-space: nowrap;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 640px) {
+  .navbar-component {
+    padding: 0.5rem 0.5rem !important;
+  }
+  
+  /* Reduce font sizes on very small screens */
+  .navbar-component .text-xl {
+    font-size: 1rem !important;
+  }
+  
+  .navbar-component .text-lg {
+    font-size: 0.875rem !important;
+  }
+}
+
+@media (max-width: 475px) {
+  /* Ultra-small screen optimizations */
+  .navbar-component .flex.items-center.space-x-1 {
+    gap: 2px !important;
+  }
+  
+  .navbar-component .flex.items-center.space-x-1 > * + * {
+    margin-left: 2px !important;
+  }
+  
+  /* Smaller padding for ultra-small screens */
+  .navbar-component button {
+    padding: 6px !important;
+  }
+  
+  .navbar-component .px-2 {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+}
+
+/* Medium screen navbar optimizations */
+@media (min-width: 768px) and (max-width: 1200px) {
+  .navbar-component .md\:flex.md\:items-center {
+    gap: 6px !important;
+    flex-wrap: wrap;
+  }
+  
+  /* Hide less important text on medium screens */
+  .navbar-component .xl\:inline {
+    display: none !important;
+  }
+  
+  /* Reduce language selector width */
+  .navbar-component #language-selector select {
+    min-width: 80px !important;
+    max-width: 120px !important;
+  }
+}
+
+/* Share Modal Responsive Improvements */
+@media (max-width: 640px) {
+  .fixed.inset-0.z-50 {
+    padding: 8px !important;
+  }
+  
+  /* Modal specific mobile optimizations */
+  .bg-white.dark\:bg-gray-800.rounded-lg.shadow-xl {
+    max-height: 95vh !important;
+    min-height: auto !important;
+  }
+  
+  /* Tab improvements for mobile */
+  .flex.border-b.border-gray-200 button {
+    min-height: 44px; /* Better touch target */
+  }
+}
+
+/* Better scrolling for mobile */
+@media (max-width: 768px) {
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin;
+  }
+  
+  /* Improve modal scrolling on mobile */
+  .max-h-\[95vh\] {
+    max-height: calc(100vh - 16px) !important;
+  }
+  
+  .max-h-\[90vh\] {
+    max-height: calc(100vh - 32px) !important;
+  }
+}
+
+/* Landscape phone optimizations */
+@media (max-width: 896px) and (orientation: landscape) {
+  .navbar-component .md\:hidden.block {
+    max-height: calc(100vh - 80px) !important;
+  }
+  
+  .bg-white.dark\:bg-gray-800.rounded-lg.shadow-xl {
+    max-height: 90vh !important;
+  }
+}
+
+/* Prevent button text from being cut off */
+.navbar-component button span {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ensure consistent button sizing */
+.navbar-component .flex-shrink-0 {
+  flex-shrink: 0 !important;
+}
+
+/* Better mobile menu backdrop */
+@media (max-width: 768px) {
+  .navbar-component .md\:hidden.block {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+}
+
 /* Explicit dark mode overrides for various components */
 body[data-theme="dark"] {
   background-color: #1a1b26;
@@ -482,4 +696,103 @@ body.dragging #output-panel {
 .divider-handle {
   transform: scaleY(1);
   transition: transform 0.2s ease;
+}
+
+/* Additional responsive utilities */
+@media (max-width: 375px) {
+  /* Extra small screen optimizations */
+  .navbar-component .hidden.sm\:inline {
+    display: none !important;
+  }
+  
+  .navbar-component .sm\:hidden {
+    display: flex !important;
+  }
+  
+  /* Compact mobile menu items */
+  .navbar-component .space-y-2 > * + * {
+    margin-top: 8px !important;
+  }
+  
+  /* Smaller modal on very small screens */
+  .bg-white.dark\:bg-gray-800.rounded-lg.shadow-xl {
+    margin: 4px !important;
+    border-radius: 8px !important;
+  }
+}
+
+/* iPhone SE and similar small screens */
+@media (max-width: 320px) {
+  .navbar-component {
+    padding: 0.25rem 0.5rem !important;
+  }
+  
+  .navbar-component .text-lg {
+    font-size: 0.75rem !important;
+  }
+  
+  .navbar-component button {
+    padding: 4px !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* Ultra-compact share modal */
+  .fixed.inset-0.z-50 {
+    padding: 4px !important;
+  }
+  
+  .bg-white.dark\:bg-gray-800.rounded-lg.shadow-xl {
+    min-width: calc(100vw - 8px) !important;
+  }
+}
+
+/* Tablet landscape optimizations */
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+  .navbar-component .md\:flex.md\:items-center {
+    gap: 4px !important;
+  }
+  
+  .navbar-component .lg\:px-3 {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+}
+
+/* Ensure modals work well on all screen sizes */
+.modal-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+@media (min-width: 640px) {
+  .modal-container {
+    max-width: 28rem; /* sm:max-w-md */
+  }
+}
+
+@media (min-width: 1024px) {
+  .modal-container {
+    max-width: 32rem; /* lg:max-w-lg */
+  }
+}
+
+/* Fix potential text overflow issues */
+.truncate-safe {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Better focus states for mobile */
+@media (max-width: 768px) {
+  .focus\:ring-2:focus {
+    box-shadow: 0 0 0 1px rgb(59 130 246 / 0.3) !important;
+  }
+  
+  .focus\:ring-blue-500:focus {
+    box-shadow: 0 0 0 1px rgb(59 130 246 / 0.3) !important;
+  }
 }
