@@ -153,6 +153,98 @@
   }
 }
 
+/* Additional responsive navbar styling */
+@media (max-width: 640px) {
+  .navbar-component {
+    padding: 0.5rem 0.75rem !important;
+  }
+  
+  .navbar-component .container {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Make the navbar buttons more responsive */
+@media (max-width: 375px) {
+  .navbar-component .container {
+    gap: 4px !important;
+  }
+  
+  .navbar-component button,
+  .navbar-component .md\:hidden button {
+    padding: 4px !important;
+  }
+  
+  /* Scale down icons for very small screens */
+  .navbar-component .md\:hidden button svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Handle overflows on medium screens */
+@media (min-width: 768px) and (max-width: 1100px) {
+  .navbar-component .md\:flex.md\:flex-wrap {
+    justify-content: flex-end;
+    gap: 4px !important;
+  }
+  
+  /* Remove border on some buttons to save space */
+  .navbar-component .md\:flex button:not(.border-blue-300):not(.border-red-300):not(.border-green-300):not(#run-button) {
+    border-color: transparent !important;
+    background-color: transparent !important;
+  }
+}
+
+/* Medium screens adjustments */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .navbar-component {
+    padding: 0.5rem 1rem !important;
+  }
+  
+  /* Adjust button spacing */
+  .navbar-component .md\:flex.items-center.space-x-3 {
+    gap: 0.5rem !important;
+  }
+  
+  /* Make buttons smaller on medium screens */
+  .navbar-component .md\:flex button:not(#run-button),
+  .navbar-component .md\:flex select {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Better spacing for mobile menu */
+.navbar-component .md\:hidden.block {
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+/* Optimize dropdown menus to prevent overflow */
+.navbar-component .absolute {
+  max-width: 90vw;
+  z-index: 50;
+}
+
+/* Improve button sizing consistency */
+.navbar-component button {
+  white-space: nowrap;
+}
+
+/* Hide text on smaller screens for certain buttons */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .navbar-component .lg\:inline {
+    display: none !important;
+  }
+  
+  .navbar-component #language-selector select {
+    width: 120px !important;
+  }
+}
+
 /* Explicit dark mode overrides for various components */
 body[data-theme="dark"] {
   background-color: #1a1b26;

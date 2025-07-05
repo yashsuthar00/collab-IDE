@@ -33,7 +33,7 @@ const SaveFileButton = ({
     <button
       onClick={handleClick}
       disabled={disabled}
-      className={`flex items-center ${isMobile ? 'p-2' : 'px-3 py-1.5'} rounded-md ${
+      className={`flex items-center ${isMobile ? 'p-1.5' : 'px-2 py-1.5 lg:px-3'} rounded-md text-xs sm:text-sm ${
         currentFile 
           ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40' 
           : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40'
@@ -42,12 +42,12 @@ const SaveFileButton = ({
     >
       {saveSuccess ? (
         <>
-          <Check className="w-4 h-4 mr-1" />
+          <Check className="w-3 h-3 lg:w-4 lg:h-4 mr-1" />
           <span className={isMobile ? 'hidden' : ''}>Saved</span>
         </>
       ) : (
         <>
-          <Save className="w-4 h-4 mr-1" />
+          <Save className="w-3 h-3 lg:w-4 lg:h-4 mr-1" />
           <span className={isMobile ? 'hidden' : ''}>{currentFile ? 'Update' : 'Save As'}</span>
         </>
       )}
