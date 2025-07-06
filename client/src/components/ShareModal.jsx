@@ -14,6 +14,17 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [shareableLink, setShareableLink] = useState('');
   const [shareLinkError, setShareLinkError] = useState('');
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 640);
+
+  // Track screen size changes
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 640);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -248,12 +259,15 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
                 {tab === 'link' && <Link className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />}
                 {tab === 'email' && <Mail className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />}
                 {tab === 'code' && <Clipboard className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />}
-                <span className="hidden sm:inline">
-                  {tab === 'link' ? 'Share Link' : tab === 'email' ? 'Email' : 'Copy Code'}
-                </span>
-                <span className="sm:hidden truncate text-xs">
-                  {tab === 'link' ? 'Link' : tab === 'email' ? 'Email' : 'Code'}
-                </span>
+                {!isSmallScreen ? (
+                  <span className="text-sm">
+                    {tab === 'link' ? 'Share Link' : tab === 'email' ? 'Email' : 'Copy Code'}
+                  </span>
+                ) : (
+                  <span className="truncate text-xs">
+                    {tab === 'link' ? 'Link' : tab === 'email' ? 'Email' : 'Code'}
+                  </span>
+                )}
               </div>
             </button>
           ))}
@@ -285,8 +299,7 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
                       linkCopied ? (
                         <>
                           <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                          <span className="hidden sm:inline">Copied!</span>
-                          <span className="sm:hidden">✓</span>
+                          {!isSmallScreen ? <span>Copied!</span> : <span>✓</span>}
                         </>
                       ) : (
                         <>
@@ -297,8 +310,7 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
                     ) : (
                       <>
                         <Link className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                        <span className="hidden sm:inline">Generate Link</span>
-                        <span className="sm:hidden">Generate</span>
+                        {!isSmallScreen ? <span>Generate Link</span> : <span>Generate</span>}
                       </>
                     )}
                   </button>
@@ -319,10 +331,11 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
               </div>
               
               <div className="mt-2">
-                <p className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code Preview:</p>
+                {!showFullCode && <p className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code Preview:</p>}
+                {!showFullCode &&
                 <div className="bg-gray-100 dark:bg-gray-900 p-2 sm:p-3 rounded-md font-mono text-xs border border-gray-200 dark:border-gray-700 overflow-hidden whitespace-pre-wrap max-h-24 sm:max-h-32">
                   {getCodePreview()}
-                </div>
+                </div> }
                 <div className="flex justify-between mt-1">
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     {getCodeInfo()}
@@ -448,8 +461,8 @@ const ShareModal = ({ isOpen, onClose, code, language }) => {
           )}
         </div>
           <div className="border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center bg-gray-50 dark:bg-gray-900 rounded-b-lg">
-          <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:flex items-center">
-            <Info className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+          <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block items-center">
+            <Info className="h-3 w-3 sm:h-4 sm:w-4 mr-1 inline-block align-text-bottom" />
             Sharing from Collab IDE
           </div>
           <button

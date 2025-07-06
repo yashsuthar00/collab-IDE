@@ -1082,6 +1082,7 @@ function CollaborativeApp() {
                   theme={theme}
                   onRunCode={handleRunCode}
                   readOnly={isInRoom && !checkPermission('EDIT_CODE')}
+                  isFilesPanelOpen={isFilesPanelOpen}
                 />
               </ErrorBoundary>
             </div>
@@ -1265,6 +1266,7 @@ function CollaborativeApp() {
                   theme={theme}
                   onRunCode={handleRunCode}
                   readOnly={isInRoom && !checkPermission('EDIT_CODE')}
+                  isFilesPanelOpen={isFilesPanelOpen}
                 />
               </ErrorBoundary>
             </div>

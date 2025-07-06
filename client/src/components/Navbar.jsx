@@ -162,7 +162,7 @@ function Navbar({
     };
   }, [menuOpen]);
 
-  return (    <nav id="navbar" className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-1 px-2 sm:py-1.5 sm:px-3 lg:py-2 lg:px-4 xl:py-2.5 xl:px-5 shadow-sm overflow-hidden">
+  return (    <nav id="navbar" className="navbar-component border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-1 px-2 sm:py-1.5 sm:px-3 lg:py-2 lg:px-4 xl:py-2.5 xl:px-5 shadow-sm ">
       <div className="w-full flex items-center justify-between max-w-none min-w-0">
         <div className="flex items-center min-w-0 flex-shrink-0">
           <div className="flex items-center space-x-1 lg:space-x-1.5 xl:space-x-2 text-sm sm:text-base lg:text-lg xl:text-xl font-bold text-blue-600 dark:text-blue-400 min-w-0">
@@ -177,7 +177,7 @@ function Navbar({
           >
             {menuOpen ? <X size={16} /> : <MenuIcon size={16} />}
           </button>
-        </div>        <div className="hidden md:flex md:items-center md:gap-0.5 lg:gap-1 xl:gap-1.5 2xl:gap-2 flex-nowrap overflow-hidden min-w-0">
+        </div>        <div className="hidden md:flex md:items-center md:gap-0.5 lg:gap-1 xl:gap-1.5 2xl:gap-2 flex-nowrap min-w-0">
           {/* Friends Menu - Only show when user is authenticated */}
           {isAuthenticated && <FriendsMenu />}
 
@@ -195,7 +195,7 @@ function Navbar({
             <div className="relative flex-shrink-0" ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center space-x-0.5 lg:space-x-1 xl:space-x-1 px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors max-w-[80px] lg:max-w-[100px] xl:max-w-[120px] 2xl:max-w-[140px] min-w-0"
+                className="flex items-center space-x-0.5 lg:space-x-1 xl:space-x-1 px-1 py-0.5 lg:px-1.5 lg:py-1 xl:px-2 xl:py-1.5 2xl:px-3 2xl:py-2 rounded-md text-xs lg:text-sm xl:text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors max-w-[80px] lg:max-w-[200px] xl:max-w-[220px] 2xl:max-w-[240px] min-w-0"
               >
                 <UserAvatar user={user} size="sm" className="flex-shrink-0" />
                 <span className="truncate text-xs lg:text-sm xl:text-sm min-w-0">{user?.username || user?.email}</span>

@@ -136,10 +136,9 @@ const FriendsMenu = ({ isMobile = false }) => {
           {showNotificationDropdown && (
             <div
               ref={notificationDropdownRef}
-              className="absolute right-0 mt-2 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 overflow-hidden border border-gray-200 dark:border-gray-700 dropdown-menu"
+              className="absolute top-full left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 overflow-hidden border border-gray-200 dark:border-gray-700 dropdown-menu"
               style={{
-                right: isMobile ? '-120px' : '0',
-                width: isMobile ? '280px' : '320px',
+                width: isMobile ? '260px' : '320px',
               }}
             >
               <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">

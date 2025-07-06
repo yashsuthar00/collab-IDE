@@ -10,6 +10,40 @@ import { toast } from 'react-hot-toast';
 import LanguageIcon from './LanguageIcon'; // Import the new component
 import RenameDialog from './RenameDialog'; // Import RenameDialog component
 
+// Utility function to sort files and directories
+const sortItems = (items) => {
+  if (!Array.isArray(items) || items.length === 0) return [];
+  
+  return [...items].sort((a, b) => {
+    const nameA = a.name || '';
+    const nameB = b.name || '';
+    
+    // Helper function to extract numeric parts from a string
+    const extractNumber = (str) => {
+      const numMatch = str.match(/^(\d+)/);
+      return numMatch ? parseInt(numMatch[0], 10) : null;
+    };
+    
+    // Check if both names start with numbers
+    const numA = extractNumber(nameA);
+    const numB = extractNumber(nameB);
+    
+    // If both start with numbers, sort numerically
+    if (numA !== null && numB !== null) {
+      if (numA !== numB) return numA - numB;
+      // If the numeric parts are equal, continue to alphabetic sort for the rest
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+    }
+    
+    // If only one starts with a number, put numbers first
+    if (numA !== null) return -1;
+    if (numB !== null) return 1;
+    
+    // Otherwise, do a natural alphabetic sort
+    return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+};
+
 const FilesPanel = ({ 
   isOpen, 
   onClose, 
@@ -25,6 +59,12 @@ const FilesPanel = ({
   const [directoryTree, setDirectoryTree] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState('name'); // 'name' or 'date'
+  const [searchResults, setSearchResults] = useState({
+    files: [],
+    directories: []
+  });
+  const [isSearching, setIsSearching] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [newDirName, setNewDirName] = useState('');
   const [isCreatingFile, setIsCreatingFile] = useState(false);
@@ -99,10 +139,18 @@ const FilesPanel = ({
       console.log('Directory contents response:', response);
       
       if (response && response.data) {
-        setDirectories(Array.isArray(response.data.directories) ? response.data.directories : 
-                      (response.data.directories || []));
-        setFiles(Array.isArray(response.data.files) ? response.data.files : 
-                (response.data.files || []));
+        // Get directories and files from response and sort them properly
+        const unsortedDirectories = Array.isArray(response.data.directories) 
+          ? response.data.directories 
+          : (response.data.directories || []);
+        
+        const unsortedFiles = Array.isArray(response.data.files) 
+          ? response.data.files 
+          : (response.data.files || []);
+        
+        // Sort directories and files with our utility function
+        setDirectories(sortItems(unsortedDirectories));
+        setFiles(sortItems(unsortedFiles));
       } else {
         setDirectories([]);
         setFiles([]);
@@ -130,7 +178,40 @@ const FilesPanel = ({
       console.log('Directory tree response:', response);
       
       if (response && response.data) {
-        setDirectoryTree(Array.isArray(response.data) ? response.data : []);
+        // Sort the directory tree data
+        const treeData = Array.isArray(response.data) ? response.data : [];
+        
+        // Sort the directory tree recursively
+        const sortTreeRecursively = (items) => {
+          if (!Array.isArray(items) || items.length === 0) return [];
+          
+          // Sort the current level
+          const sortedItems = sortItems(items);
+          
+          // For each item with children, sort its children recursively
+          return sortedItems.map(item => {
+            if (item.children && Array.isArray(item.children) && item.children.length > 0) {
+              return {
+                ...item,
+                children: sortTreeRecursively(item.children)
+              };
+            }
+            
+            // If the item has files, sort those too
+            if (item.files && Array.isArray(item.files) && item.files.length > 0) {
+              return {
+                ...item,
+                files: sortItems(item.files)
+              };
+            }
+            
+            return item;
+          });
+        };
+        
+        const sortedTree = sortTreeRecursively(treeData);
+        setDirectoryTree(sortedTree);
+        
         // If the tree includes complete file data, store it in our files state as well
         if (Array.isArray(response.data)) {
           const allFiles = [];
@@ -154,7 +235,7 @@ const FilesPanel = ({
               prevFiles.forEach(file => fileMap.set(file._id, file));
               // Add new files or update existing ones
               allFiles.forEach(file => fileMap.set(file._id, file));
-              return Array.from(fileMap.values());
+              return sortItems(Array.from(fileMap.values()));
             });
           }
         }
@@ -652,7 +733,7 @@ const FilesPanel = ({
     
     // Get files that belong to this directory using various possible relationship fields
     // More robust filtering to capture all possible file-directory relationships
-    const directoryFiles = item.files && Array.isArray(item.files) 
+    const unsortedDirectoryFiles = item.files && Array.isArray(item.files) 
       ? item.files 
       : files.filter(file => 
           file.directoryId === item._id || 
@@ -663,7 +744,19 @@ const FilesPanel = ({
           (typeof file.parent === 'object' && file.parent?._id === item._id)
         );
     
-    const hasChildren = (item.children && item.children.length > 0) || directoryFiles.length > 0;
+    // Sort the files within this directory
+    const directoryFiles = sortOption === 'date'
+      ? sortItemsByOption(unsortedDirectoryFiles)
+      : sortItems(unsortedDirectoryFiles);
+    
+    // Sort the children directories if they exist
+    const sortedChildren = item.children && item.children.length > 0
+      ? (sortOption === 'date'
+          ? sortItemsByOption(item.children.filter(child => child.type === 'directory'))
+          : sortItems(item.children.filter(child => child.type === 'directory')))
+      : [];
+    
+    const hasChildren = (sortedChildren && sortedChildren.length > 0) || directoryFiles.length > 0;
     const isDropTarget = dropTarget === item._id;
     
     return (
@@ -735,11 +828,17 @@ const FilesPanel = ({
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
               >
-                {/* Fixed width for the icon to prevent shrinking with long file names */}
                 <div className="flex-shrink-0 w-5 mr-2">
                   <LanguageIcon language={file.language} size={16} />
                 </div>
-                <span className="truncate text-sm">{file.name}</span>
+                <div className="truncate text-sm">
+                  <span>{file.name}</span>
+                  {sortOption === 'date' && file.lastModified && (
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(file.lastModified).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
                 <div className="ml-auto opacity-0 group-hover:opacity-100 flex items-center flex-shrink-0">
                   <button
                     className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
@@ -760,14 +859,13 @@ const FilesPanel = ({
             ))}
             
             {/* Then show subdirectories */}
-            {item.children && item.children.map(child => 
-              child.type === 'directory' ? (
+            {sortedChildren && sortedChildren.map(child => (
                 <DirectoryTreeItem 
                   key={child._id} 
                   item={child} 
                   level={level + 1} 
                 />
-              ) : null
+              )
             )}
             
             {/* Show empty state message only if there are no contents AND we're expanded */}
@@ -855,6 +953,84 @@ const FilesPanel = ({
     );
   };
 
+  // Handle search functionality
+  useEffect(() => {
+    // Don't search if query is empty
+    if (!searchQuery.trim()) {
+      setIsSearching(false);
+      setSearchResults({ files: [], directories: [] });
+      return;
+    }
+
+    setIsSearching(true);
+    
+    // Function to perform search across all files and directories
+    const performSearch = () => {
+      const query = searchQuery.toLowerCase().trim();
+      
+      // Search in files
+      const matchedFiles = files.filter(file => 
+        file.name.toLowerCase().includes(query)
+      );
+      
+      // Search in directories
+      const matchedDirectories = directories.filter(dir => 
+        dir.name.toLowerCase().includes(query)
+      );
+      
+      // Also search in directory tree to include nested directories
+      const matchedTreeDirs = [];
+      const searchInTree = (items) => {
+        if (!Array.isArray(items)) return;
+        
+        items.forEach(item => {
+          // Only add directories that aren't already in the directories list
+          if (item.type === 'directory' && 
+              item.name.toLowerCase().includes(query) && 
+              !directories.some(d => d._id === item._id) &&
+              !matchedTreeDirs.some(d => d._id === item._id)) {
+            matchedTreeDirs.push(item);
+          }
+          
+          // Recursively search in children
+          if (item.children && Array.isArray(item.children)) {
+            searchInTree(item.children);
+          }
+        });
+      };
+      
+      searchInTree(directoryTree);
+      
+      // Update the search results
+      setSearchResults({
+        files: matchedFiles,
+        directories: [...matchedDirectories, ...matchedTreeDirs]
+      });
+    };
+    
+    // Debounce the search to avoid performance issues
+    const debounceTimeout = setTimeout(performSearch, 300);
+    
+    return () => clearTimeout(debounceTimeout);
+  }, [searchQuery, files, directories, directoryTree]);
+
+  // Function to sort items by the selected option
+  const sortItemsByOption = (items) => {
+    if (!Array.isArray(items) || items.length === 0) return [];
+    
+    return [...items].sort((a, b) => {
+      if (sortOption === 'date') {
+        // Sort by date (most recent first)
+        const dateA = new Date(a.lastModified || a.updatedAt || a.createdAt || 0);
+        const dateB = new Date(b.lastModified || b.updatedAt || b.createdAt || 0);
+        return dateB - dateA;
+      } else {
+        // Default to name sorting using the existing sortItems function
+        return sortItems([a, b])[0]._id === a._id ? -1 : 1;
+      }
+    });
+  };
+
   if (!isAuthenticated) {
     return (
       <div className={`fixed inset-0 bg-white dark:bg-gray-900 z-40 transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out flex flex-col`}>
@@ -934,18 +1110,37 @@ const FilesPanel = ({
       
       {/* Search Bar */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search size={16} className="text-gray-400" />
+        <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
+          <div className="relative flex-grow">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search size={16} className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search files and folders..."
+              className="block w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Search files..."
-            className="block w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
+          <div className="flex-shrink-0">
+            <select
+              value={sortOption}
+              onChange={e => setSortOption(e.target.value)}
+              className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="name">Sort by Name</option>
+              <option value="date">Sort by Date</option>
+            </select>
+          </div>
         </div>
+        
+        {/* Show search results count when searching */}
+        {isSearching && searchQuery.trim() && (
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Found {searchResults.files.length + searchResults.directories.length} results for "{searchQuery}"
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
@@ -1014,10 +1209,16 @@ const FilesPanel = ({
               {expandedDirs.has('root') && (
                 <div>
                   {/* Show root level files */}
-                  {files
-                    .filter(file => (!file.directoryId && !file.directory && !file.parent) || 
+                  {(sortOption === 'date'
+                    ? sortItemsByOption(
+                        files.filter(file => (!file.directoryId && !file.directory && !file.parent) || 
                                     (file.directoryId === null || file.directory === null || file.parent === null))
-                    .map(file => (
+                      )
+                    : sortItems(
+                        files.filter(file => (!file.directoryId && !file.directory && !file.parent) || 
+                                    (file.directoryId === null || file.directory === null || file.parent === null))
+                      )
+                  ).map(file => (
                       <div 
                         key={file._id}
                         className={`flex items-center py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer ${
@@ -1031,11 +1232,17 @@ const FilesPanel = ({
                         onDragEnter={handleDragEnter}
                         onDragLeave={handleDragLeave}
                       >
-                        {/* Fixed width for the icon to prevent shrinking */}
                         <div className="flex-shrink-0 w-5 mr-2">
                           <LanguageIcon language={file.language} size={16} />
                         </div>
-                        <span className="truncate text-sm">{file.name}</span>
+                        <div className="truncate text-sm">
+                          <span>{file.name}</span>
+                          {sortOption === 'date' && file.lastModified && (
+                            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                              {new Date(file.lastModified).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
                         <div className="ml-auto opacity-0 group-hover:opacity-100 flex items-center flex-shrink-0">
                           <button
                             className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
@@ -1057,11 +1264,9 @@ const FilesPanel = ({
                   }
                   
                   {/* Show non-root directories */}
-                  {directoryTree.map(item => 
-                    item.type === 'directory' && (
-                      <DirectoryTreeItem key={item._id} item={item} level={1} />
-                    )
-                  )}
+                  {sortItems(directoryTree.filter(item => item.type === 'directory')).map(item => (
+                    <DirectoryTreeItem key={item._id} item={item} level={1} />
+                  ))}
                   
                   {/* Show empty state if no files or directories */}
                   {files.filter(file => !file.directoryId && !file.directory && !file.parent).length === 0 && directoryTree.length === 0 && (
@@ -1108,14 +1313,95 @@ const FilesPanel = ({
               <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
               </div>
+            ) : isSearching && searchQuery.trim() ? (
+              // Show search results
+              <>
+                {/* Search Results */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-4">Search Results</h3>
+                  
+                  {/* Directories in search results */}
+                  {searchResults.directories.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium mb-2 text-gray-500 dark:text-gray-400">Directories</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {sortItemsByOption(searchResults.directories).map(dir => (
+                          <div 
+                            key={dir._id}
+                            className="flex items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer group"
+                            onClick={() => navigateToDirectory(dir._id)}
+                          >
+                            <div className="flex-shrink-0 w-6 mr-3">
+                              <Folder size={20} className="text-blue-500 dark:text-blue-400" />
+                            </div>
+                            <div className="flex-grow overflow-hidden">
+                              <div className="font-medium truncate">{dir.name}</div>
+                              {sortOption === 'date' && dir.lastModified && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {new Date(dir.lastModified || dir.updatedAt || dir.createdAt).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Files in search results */}
+                  {searchResults.files.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 text-gray-500 dark:text-gray-400">Files</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {sortItemsByOption(searchResults.files).map(file => (
+                          <div 
+                            key={file._id}
+                            className={`relative flex items-center p-3 rounded-md border hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer group 
+                              ${selectedFile && selectedFile._id === file._id
+                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
+                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                              }`}
+                            onClick={() => handleFileSelect(file._id)}
+                          >
+                            <div className="flex-shrink-0 w-6 mr-3">
+                              <LanguageIcon language={file.language} />
+                            </div>
+                            <div className="flex-grow overflow-hidden">
+                              <div className="font-medium truncate">{file.name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {file.language} • {new Date(file.lastModified).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No results message */}
+                  {searchResults.directories.length === 0 && searchResults.files.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-64 text-center">
+                      <Search size={48} className="mb-4 text-gray-300 dark:text-gray-600" />
+                      <h3 className="text-lg font-medium mb-2">No matches found</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+                        Try different keywords or check your spelling
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
               <>
+                {/* Regular content when not searching */}
                 {/* Directories */}
                 {directories.length > 0 && (
                   <div className="mb-6">
                     <h3 className="text-sm font-medium mb-2 text-gray-500 dark:text-gray-400">Directories</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {directories.map(dir => (
+                      {(sortOption === 'date' 
+                        ? sortItemsByOption(directories) 
+                        : sortItems(directories)
+                      ).map(dir => (
                         <div 
                           key={dir._id}
                           className={`flex items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-md border 
@@ -1129,11 +1415,17 @@ const FilesPanel = ({
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, dir._id)}
                         >
-                          {/* Fixed width container for icon */}
-                          <div className="flex-shrink-0 w-6 mr-3">
-                            <Folder size={20} className="text-blue-500 dark:text-blue-400" />
-                          </div>
-                          <span className="flex-grow truncate">{dir.name}</span>
+                            <div className="flex-shrink-0 w-6 mr-3">
+                              <Folder size={20} className="text-blue-500 dark:text-blue-400" />
+                            </div>
+                            <div className="flex-grow overflow-hidden">
+                              <div className="font-medium truncate">{dir.name}</div>
+                              {sortOption === 'date' && (dir.lastModified || dir.updatedAt || dir.createdAt) && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {new Date(dir.lastModified || dir.updatedAt || dir.createdAt).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
                           <div className="opacity-0 group-hover:opacity-100 flex flex-shrink-0">
                             <button
                               className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
@@ -1177,7 +1469,10 @@ const FilesPanel = ({
                   <div>
                     <h3 className="text-sm font-medium mb-2 text-gray-500 dark:text-gray-400">Files</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {files.map(file => (
+                      {(sortOption === 'date' 
+                        ? sortItemsByOption(files)
+                        : sortItems(files)
+                      ).map(file => (
                         <div 
                           key={file._id}
                           className={`relative flex items-center p-3 rounded-md border hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer group 
