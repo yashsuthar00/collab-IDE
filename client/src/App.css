@@ -796,3 +796,86 @@ body.dragging #output-panel {
     box-shadow: 0 0 0 1px rgb(59 130 246 / 0.3) !important;
   }
 }
+
+/* Mobile swipe transition improvements */
+.mobile-swipe-transition-enter,
+.mobile-swipe-transition-exit,
+.mobile-swipe-transition-enter-reverse,
+.mobile-swipe-transition-exit-reverse {
+  transition: transform 0.3s ease-out;
+  will-change: transform;
+  position: relative;
+  z-index: 10;
+}
+
+/* Add a nice touch feedback for better user experience */
+@media (max-width: 767px) {
+  #code-editor, #output-panel {
+    will-change: transform;
+    overflow: hidden;
+  }
+  
+  /* Prevent scrolling during swipe animation */
+  body.is-swiping {
+    overflow: hidden;
+  }
+  
+  /* Make swipe indicators more visible */
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+/* Simplified swipe hint - only shows briefly and non-intrusively */
+.swipe-hint {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(59, 130, 246, 0.8);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  transition: opacity 0.3s ease;
+  opacity: 0.9;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Fade out animation for the hint */
+.swipe-hint.fade-out {
+  opacity: 0;
+}
+.swipe-gesture-animation {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.swipe-gesture-animation::after {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: rgba(59, 130, 246, 0.5);
+  top: 15px;
+  left: 0;
+  animation: swipe-gesture 1.5s infinite;
+}
+
+@keyframes swipe-gesture {
+  0% {
+    left: 0;
+    opacity: 1;
+  }
+  100% {
+    left: 30px;
+    opacity: 0;
+  }
+}

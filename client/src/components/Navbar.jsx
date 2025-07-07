@@ -384,7 +384,7 @@ function Navbar({
 
           <button
             id="run-button"
-            onClick={onRunCode}
+            onClick={handleRunClick}
             disabled={isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))}
             className={`px-1.5 lg:px-2 xl:px-3 2xl:px-4 py-0.5 lg:py-1 xl:py-1.5 2xl:py-2 rounded-md flex items-center space-x-0.5 lg:space-x-1 xl:space-x-1.5 2xl:space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors flex-shrink-0 ${
               isLoading || (isInRoom && !['owner', 'editor', 'runner'].includes(currentUser?.accessLevel))

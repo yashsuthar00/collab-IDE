@@ -1168,8 +1168,11 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
           beforeMount={() => {}}
           onValidate={() => {}} // Add empty validator to suppress unnecessary warnings
         />
-        <div className="absolute bottom-14 right-2 text-xs text-gray-400 dark:text-gray-600 md:hidden bg-white dark:bg-gray-800 px-2 py-1 rounded opacity-70 swipe-hint">
-          Swipe to see output →
+        <div className="absolute bottom-14 right-2 text-xs px-3 py-2 bg-blue-500/80 text-white dark:bg-blue-600/90 rounded-full shadow-md md:hidden animate-pulse flex items-center gap-1">
+          <span>Swipe left to see output</span>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </div>
       </div>
       

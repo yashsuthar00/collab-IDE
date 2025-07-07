@@ -133,7 +133,15 @@ function OutputPanel({ output, input, setInput, loading, error, activeTab, setAc
         </div>
       </div>
       
-      <div className="output-panel-content flex-1 p-2 md:p-4 overflow-auto bg-white dark:bg-gray-800">
+      <div className="output-panel-content flex-1 p-2 md:p-4 overflow-auto bg-white dark:bg-gray-800 relative">
+        {/* Swipe hint for mobile */}
+        <div className="absolute top-1 left-2 text-xs px-3 py-2 bg-blue-500/80 text-white dark:bg-blue-600/90 rounded-full shadow-md md:hidden animate-pulse flex items-center gap-1 z-10">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span>Swipe right to see code</span>
+        </div>
+        
         {activeTab === 'output' ? (
           <div className="h-full output-panel-output">
             {loading ? (

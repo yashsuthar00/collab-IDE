@@ -20,6 +20,7 @@ import { languageOptions } from './constants/languageOptions';
 import { RoomProvider, useRoom } from './contexts/RoomContext';
 import { FriendsProvider } from './contexts/FriendsContext'; // Import FriendsProvider
 import api, { getConnectedSocket } from './utils/api';
+import { initAppSwipeDetection, switchToOutput, switchToCode } from './utils/swipeDetection'; // Import swipe detection utility
 import { Analytics } from "@vercel/analytics/react"
 import { 
   createMainTour, 
@@ -28,6 +29,7 @@ import {
   hasTourBeenSeen
 } from './utils/tours';
 import './App.css';
+import './css/animations.css'; // Import animations CSS
 
 // ErrorBoundary component to catch errors in CodeEditor
 class ErrorBoundary extends Component {
@@ -112,6 +114,8 @@ function CollaborativeApp() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [editorWidth, setEditorWidth] = useState(60); // Default editor width percentage
   const [isDragging, setIsDragging] = useState(false);
+  const [swipeDirection, setSwipeDirection] = useState(null); // Track swipe direction for animations
+  const [isSwipeAnimating, setIsSwipeAnimating] = useState(false); // Track if swipe animation is in progress
   const [showDividerHint, setShowDividerHint] = useState(() => {
     // Only show hint if user hasn't seen it before
     return localStorage.getItem('dividerHintSeen') !== 'true';
@@ -174,9 +178,53 @@ function CollaborativeApp() {
     }
   }, [showSwapHint]);
 
-  const toggleMobileView = () => {
-    setMobileView(prev => prev === 'code' ? 'output' : 'code');
-  };
+  const toggleMobileView = useCallback(() => {
+    // If animation is in progress, don't toggle
+    if (isSwipeAnimating) return;
+    
+    // Set swipe direction for animation
+    setSwipeDirection(mobileView === 'code' ? 'left' : 'right');
+    
+    // Start animation
+    setIsSwipeAnimating(true);
+    
+    // Add body class to prevent scrolling during animation
+    document.body.classList.add('is-swiping');
+    
+    // After a short delay to let the exit animation play, change the view
+    setTimeout(() => {
+      setMobileView(prev => prev === 'code' ? 'output' : 'code');
+      
+      // Reset animation state after the view has changed and animations complete
+      setTimeout(() => {
+        setIsSwipeAnimating(false);
+        // Remove body class
+        document.body.classList.remove('is-swiping');
+      }, 300); // Animation duration
+    }, 150); // Half the animation duration
+  }, [mobileView, isSwipeAnimating]);
+
+  // Handle swipe left (from code editor to output)
+  const handleSwipeLeft = useCallback(() => {
+    console.log('Swipe left detected, current view:', mobileView);
+    if (mobileView === 'code' && isMobile) {
+      console.log('Switching from code to output');
+      // Set direction for animation
+      setSwipeDirection('left');
+      toggleMobileView();
+    }
+  }, [mobileView, isMobile, toggleMobileView]);
+
+  // Handle swipe right (from output to code editor)
+  const handleSwipeRight = useCallback(() => {
+    console.log('Swipe right detected, current view:', mobileView);
+    if (mobileView === 'output' && isMobile) {
+      console.log('Switching from output to code');
+      // Set direction for animation
+      setSwipeDirection('right');
+      toggleMobileView();
+    }
+  }, [mobileView, isMobile, toggleMobileView]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -189,13 +237,17 @@ function CollaborativeApp() {
       setIsMobile(window.innerWidth < 768);
     };
 
+    // Initialize swipe detection with the current mobileView state
+    const cleanupSwipeDetection = initAppSwipeDetection(handleSwipeLeft, handleSwipeRight);
+
     window.addEventListener('resize', handleResize);
     window.addEventListener('resize', checkMobile);
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('resize', checkMobile);
+      cleanupSwipeDetection();
     };
-  }, []);
+  }, [handleSwipeLeft, handleSwipeRight]);
 
   // Add handlers for draggable divider
   const handleDragStart = (e) => {
@@ -1069,10 +1121,21 @@ function CollaborativeApp() {
                 transition: 'width 0.15s ease',
                 willChange: isDragging ? 'width' : 'auto'
               }}
-              className={`w-full h-full border-r border-gray-200 dark:border-gray-700 ${
-                mobileView === 'output' ? 'hidden md:block' : 'block'
-              } ${isMobile ? 'pb-12' : ''}`}
+              className={`w-full h-full border-r border-gray-200 dark:border-gray-700 
+                ${mobileView === 'output' ? 'hidden md:block' : 'block'} 
+                ${isMobile ? 'pb-12' : ''}
+                ${isMobile && swipeDirection === 'left' && isSwipeAnimating && mobileView === 'code' ? 'mobile-swipe-transition-exit' : ''}
+                ${isMobile && swipeDirection === 'right' && isSwipeAnimating && mobileView === 'code' ? 'mobile-swipe-transition-enter-reverse' : ''}
+              `}
             >
+              {/* Swipe overlay for mobile - improves touch detection */}
+              {isMobile && (
+                <div 
+                  className="absolute inset-0 z-[5] pointer-events-none" 
+                  id="code-editor-swipe-overlay"
+                ></div>
+              )}
+              
               <ErrorBoundary fallback={<div className="p-4 text-red-500">Error loading editor. Please refresh the page.</div>}>
                 <CodeEditor
                   key={editorKey} // Add a key to recreate component when room changes
@@ -1148,10 +1211,21 @@ function CollaborativeApp() {
                 transition: 'width 0.15s ease',
                 willChange: isDragging ? 'width' : 'auto'
               }}
-              className={`w-full h-full ${
-                mobileView === 'code' ? 'hidden md:block' : 'block'
-              } ${isMobile ? 'pb-12' : ''}`}
+              className={`w-full h-full 
+                ${mobileView === 'code' ? 'hidden md:block' : 'block'} 
+                ${isMobile ? 'pb-12' : ''}
+                ${isMobile && swipeDirection === 'left' && isSwipeAnimating && mobileView === 'output' ? 'mobile-swipe-transition-enter' : ''}
+                ${isMobile && swipeDirection === 'right' && isSwipeAnimating && mobileView === 'output' ? 'mobile-swipe-transition-exit-reverse' : ''}
+              `}
             >
+              {/* Swipe overlay for mobile - improves touch detection */}
+              {isMobile && (
+                <div 
+                  className="absolute inset-0 z-[5] pointer-events-none" 
+                  id="output-panel-swipe-overlay"
+                ></div>
+              )}
+              
               <OutputPanel 
                 output={output} 
                 input={input} 
