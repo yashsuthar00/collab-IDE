@@ -36,7 +36,7 @@ const logger = {
   error: (...args) => LOG_LEVEL !== 'none' ? console.error(...args) : null,
 };
 
-function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = false }) {
+function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = false, isFilesPanelOpen = false }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const cursorsRef = useRef(new Map());
@@ -1189,8 +1189,8 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
         </div>
       )}
       
-      {/* Special characters bar (only show if not read-only) */}
-      {showCharsBar && !readOnly && (
+      {/* Special characters bar (only show if not read-only and files panel is not open) */}
+      {showCharsBar && !readOnly && !isFilesPanelOpen && (
         <div className="fixed bottom-0 left-0 right-0 z-50" style={{display: 'block !important'}}>
           <SpecialCharactersBar 
             onInsert={handleSpecialCharInsert} 
