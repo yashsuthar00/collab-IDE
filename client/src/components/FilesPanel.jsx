@@ -10,6 +10,40 @@ import { toast } from 'react-hot-toast';
 import LanguageIcon from './LanguageIcon'; // Import the new component
 import RenameDialog from './RenameDialog'; // Import RenameDialog component
 
+// Utility function to sort files and directories
+const sortItems = (items) => {
+  if (!Array.isArray(items) || items.length === 0) return [];
+  
+  return [...items].sort((a, b) => {
+    const nameA = a.name || '';
+    const nameB = b.name || '';
+    
+    // Helper function to extract numeric parts from a string
+    const extractNumber = (str) => {
+      const numMatch = str.match(/^(\d+)/);
+      return numMatch ? parseInt(numMatch[0], 10) : null;
+    };
+    
+    // Check if both names start with numbers
+    const numA = extractNumber(nameA);
+    const numB = extractNumber(nameB);
+    
+    // If both start with numbers, sort numerically
+    if (numA !== null && numB !== null) {
+      if (numA !== numB) return numA - numB;
+      // If the numeric parts are equal, continue to alphabetic sort for the rest
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+    }
+    
+    // If only one starts with a number, put numbers first
+    if (numA !== null) return -1;
+    if (numB !== null) return 1;
+    
+    // Otherwise, do a natural alphabetic sort
+    return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+};
+
 const FilesPanel = ({ 
   isOpen, 
   onClose, 
@@ -99,10 +133,18 @@ const FilesPanel = ({
       console.log('Directory contents response:', response);
       
       if (response && response.data) {
-        setDirectories(Array.isArray(response.data.directories) ? response.data.directories : 
-                      (response.data.directories || []));
-        setFiles(Array.isArray(response.data.files) ? response.data.files : 
-                (response.data.files || []));
+        // Get directories and files from response and sort them properly
+        const unsortedDirectories = Array.isArray(response.data.directories) 
+          ? response.data.directories 
+          : (response.data.directories || []);
+        
+        const unsortedFiles = Array.isArray(response.data.files) 
+          ? response.data.files 
+          : (response.data.files || []);
+        
+        // Sort directories and files with our utility function
+        setDirectories(sortItems(unsortedDirectories));
+        setFiles(sortItems(unsortedFiles));
       } else {
         setDirectories([]);
         setFiles([]);
@@ -130,7 +172,40 @@ const FilesPanel = ({
       console.log('Directory tree response:', response);
       
       if (response && response.data) {
-        setDirectoryTree(Array.isArray(response.data) ? response.data : []);
+        // Sort the directory tree data
+        const treeData = Array.isArray(response.data) ? response.data : [];
+        
+        // Sort the directory tree recursively
+        const sortTreeRecursively = (items) => {
+          if (!Array.isArray(items) || items.length === 0) return [];
+          
+          // Sort the current level
+          const sortedItems = sortItems(items);
+          
+          // For each item with children, sort its children recursively
+          return sortedItems.map(item => {
+            if (item.children && Array.isArray(item.children) && item.children.length > 0) {
+              return {
+                ...item,
+                children: sortTreeRecursively(item.children)
+              };
+            }
+            
+            // If the item has files, sort those too
+            if (item.files && Array.isArray(item.files) && item.files.length > 0) {
+              return {
+                ...item,
+                files: sortItems(item.files)
+              };
+            }
+            
+            return item;
+          });
+        };
+        
+        const sortedTree = sortTreeRecursively(treeData);
+        setDirectoryTree(sortedTree);
+        
         // If the tree includes complete file data, store it in our files state as well
         if (Array.isArray(response.data)) {
           const allFiles = [];
@@ -154,7 +229,7 @@ const FilesPanel = ({
               prevFiles.forEach(file => fileMap.set(file._id, file));
               // Add new files or update existing ones
               allFiles.forEach(file => fileMap.set(file._id, file));
-              return Array.from(fileMap.values());
+              return sortItems(Array.from(fileMap.values()));
             });
           }
         }
@@ -652,7 +727,7 @@ const FilesPanel = ({
     
     // Get files that belong to this directory using various possible relationship fields
     // More robust filtering to capture all possible file-directory relationships
-    const directoryFiles = item.files && Array.isArray(item.files) 
+    const unsortedDirectoryFiles = item.files && Array.isArray(item.files) 
       ? item.files 
       : files.filter(file => 
           file.directoryId === item._id || 
@@ -663,7 +738,15 @@ const FilesPanel = ({
           (typeof file.parent === 'object' && file.parent?._id === item._id)
         );
     
-    const hasChildren = (item.children && item.children.length > 0) || directoryFiles.length > 0;
+    // Sort the files within this directory
+    const directoryFiles = sortItems(unsortedDirectoryFiles);
+    
+    // Sort the children directories if they exist
+    const sortedChildren = item.children && item.children.length > 0
+      ? sortItems(item.children.filter(child => child.type === 'directory'))
+      : [];
+    
+    const hasChildren = (sortedChildren && sortedChildren.length > 0) || directoryFiles.length > 0;
     const isDropTarget = dropTarget === item._id;
     
     return (
@@ -760,14 +843,13 @@ const FilesPanel = ({
             ))}
             
             {/* Then show subdirectories */}
-            {item.children && item.children.map(child => 
-              child.type === 'directory' ? (
+            {sortedChildren && sortedChildren.map(child => (
                 <DirectoryTreeItem 
                   key={child._id} 
                   item={child} 
                   level={level + 1} 
                 />
-              ) : null
+              )
             )}
             
             {/* Show empty state message only if there are no contents AND we're expanded */}
@@ -1014,10 +1096,10 @@ const FilesPanel = ({
               {expandedDirs.has('root') && (
                 <div>
                   {/* Show root level files */}
-                  {files
-                    .filter(file => (!file.directoryId && !file.directory && !file.parent) || 
-                                    (file.directoryId === null || file.directory === null || file.parent === null))
-                    .map(file => (
+                  {sortItems(
+                    files.filter(file => (!file.directoryId && !file.directory && !file.parent) || 
+                                  (file.directoryId === null || file.directory === null || file.parent === null))
+                  ).map(file => (
                       <div 
                         key={file._id}
                         className={`flex items-center py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer ${
@@ -1057,11 +1139,9 @@ const FilesPanel = ({
                   }
                   
                   {/* Show non-root directories */}
-                  {directoryTree.map(item => 
-                    item.type === 'directory' && (
-                      <DirectoryTreeItem key={item._id} item={item} level={1} />
-                    )
-                  )}
+                  {sortItems(directoryTree.filter(item => item.type === 'directory')).map(item => (
+                    <DirectoryTreeItem key={item._id} item={item} level={1} />
+                  ))}
                   
                   {/* Show empty state if no files or directories */}
                   {files.filter(file => !file.directoryId && !file.directory && !file.parent).length === 0 && directoryTree.length === 0 && (
@@ -1115,7 +1195,7 @@ const FilesPanel = ({
                   <div className="mb-6">
                     <h3 className="text-sm font-medium mb-2 text-gray-500 dark:text-gray-400">Directories</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {directories.map(dir => (
+                      {sortItems(directories).map(dir => (
                         <div 
                           key={dir._id}
                           className={`flex items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-md border 
@@ -1177,7 +1257,7 @@ const FilesPanel = ({
                   <div>
                     <h3 className="text-sm font-medium mb-2 text-gray-500 dark:text-gray-400">Files</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {files.map(file => (
+                      {sortItems(files).map(file => (
                         <div 
                           key={file._id}
                           className={`relative flex items-center p-3 rounded-md border hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer group 
