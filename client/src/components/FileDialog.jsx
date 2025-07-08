@@ -69,6 +69,7 @@ const FileDialog = ({
     language: 'javascript',
     directoryId: null,
     isPublic: false,
+    difficulty: 'easy',
     ...initialValues
   });
   
@@ -90,6 +91,7 @@ const FileDialog = ({
         language: 'javascript',
         directoryId: currentDirectory !== 'root' ? currentDirectory : null,
         isPublic: false,
+        difficulty: 'easy',
         ...initialValues
       });
       
@@ -211,8 +213,11 @@ const FileDialog = ({
       // Update the fileData with the possibly modified name
       const updatedFileData = {
         ...fileData,
-        name: fileName
+        name: fileName,
+        difficulty: fileData.difficulty || 'easy' // Ensure difficulty is set
       };
+      
+      console.log('Submitting file with data:', updatedFileData);
       
       await onSave(updatedFileData);
       
@@ -368,6 +373,47 @@ const FileDialog = ({
                 )}
               </div>
             )}
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">
+              Difficulty Level
+            </label>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={() => setFileData({...fileData, difficulty: 'easy'})}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                  fileData.difficulty === 'easy' 
+                    ? 'bg-green-100 text-green-800 border-2 border-green-500' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600'
+                }`}
+              >
+                Easy
+              </button>
+              <button
+                type="button"
+                onClick={() => setFileData({...fileData, difficulty: 'medium'})}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                  fileData.difficulty === 'medium' 
+                    ? 'bg-yellow-100 text-yellow-800 border-2 border-yellow-500' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600'
+                }`}
+              >
+                Medium
+              </button>
+              <button
+                type="button"
+                onClick={() => setFileData({...fileData, difficulty: 'hard'})}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                  fileData.difficulty === 'hard' 
+                    ? 'bg-red-100 text-red-800 border-2 border-red-500' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600'
+                }`}
+              >
+                Hard
+              </button>
+            </div>
           </div>
 
           <div className="mb-4">

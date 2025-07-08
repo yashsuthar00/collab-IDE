@@ -15,6 +15,11 @@ const CodeFileSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  difficulty: {
+    type: String,
+    enum: ['easy', 'medium', 'hard'],
+    default: 'easy'
+  },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

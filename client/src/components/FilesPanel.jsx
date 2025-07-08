@@ -137,6 +137,7 @@ const FilesPanel = ({
       });
       
       console.log('Directory contents response:', response);
+      console.log('Files with difficulty:', response?.data?.files?.map(file => ({ name: file.name, difficulty: file.difficulty })));
       
       if (response && response.data) {
         // Get directories and files from response and sort them properly
@@ -284,6 +285,8 @@ const FilesPanel = ({
       setIsLoading(true);
       const response = await api.files.getFile(fileId);
       
+      console.log('Selected file with difficulty:', response.data?.difficulty);
+      
       if (response && response.data) {
         setSelectedFile(response.data);
         
@@ -368,10 +371,14 @@ const FilesPanel = ({
         name: fileName,
         code: currentCode,
         language: currentLanguage,
-        directoryId: dirId
+        directoryId: dirId,
+        difficulty: 'easy' // Default to easy difficulty for new files
       };
       
+      console.log('Saving file with payload:', payload);
       const response = await api.files.saveCurrentCode(payload);
+      
+      console.log('Save file response:', response.data, 'Difficulty:', response.data.file?.difficulty);
       
       if (response && response.data && response.data.success) {
         setIsCreatingFile(false);
@@ -555,13 +562,19 @@ const FilesPanel = ({
   };
 
   // Show rename dialog for a file
-  const showRenameFileDialog = (fileId, fileName, e) => {
-    e.stopPropagation();
+  const showRenameFileDialog = (fileId, fileName, difficulty, e) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    
+    console.log('Opening rename dialog with difficulty:', difficulty);
+    
     setRenameDialog({
       isOpen: true,
       itemId: fileId,
       itemName: fileName,
-      itemType: 'file'
+      itemType: 'file',
+      difficulty: difficulty || 'easy' // Ensure a default if difficulty is undefined
     });
   };
 
@@ -577,12 +590,14 @@ const FilesPanel = ({
   };
 
   // Handle rename completion
-  const handleRename = async (newName) => {
+  const handleRename = async (newName, difficulty) => {
     const { itemId, itemType } = renameDialog;
+    
+    console.log('Renaming with difficulty:', difficulty);
     
     try {
       if (itemType === 'file') {
-        await api.files.renameFile(itemId, newName);
+        await api.files.renameFile(itemId, newName, difficulty || 'easy');
         toast.success('File renamed');
         fetchDirectoryContents(currentDirectory);
         
@@ -590,7 +605,8 @@ const FilesPanel = ({
         if (selectedFile && selectedFile._id === itemId) {
           setSelectedFile({
             ...selectedFile,
-            name: newName
+            name: newName,
+            difficulty: difficulty || 'easy'
           });
         }
       } else if (itemType === 'directory') {
@@ -619,7 +635,8 @@ const FilesPanel = ({
       isOpen: false,
       itemId: '',
       itemName: '',
-      itemType: ''
+      itemType: '',
+      difficulty: 'easy'
     });
   };
 
@@ -833,6 +850,16 @@ const FilesPanel = ({
                 </div>
                 <div className="truncate text-sm">
                   <span>{file.name}</span>
+                  {/* Show difficulty tag inline (next to file name) */}
+                  <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${
+                    (file.difficulty || 'easy') === 'easy' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                      : (file.difficulty || 'easy') === 'medium'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                  }`}>
+                    {((file.difficulty || 'easy').charAt(0).toUpperCase() + (file.difficulty || 'easy').slice(1))}
+                  </span>
                   {sortOption === 'date' && file.lastModified && (
                     <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                       {new Date(file.lastModified).toLocaleDateString()}
@@ -849,7 +876,7 @@ const FilesPanel = ({
                   </button>
                   <button
                     className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
-                    onClick={(e) => showRenameFileDialog(file._id, file.name, e)}
+                    onClick={(e) => showRenameFileDialog(file._id, file.name, file.difficulty, e)}
                     aria-label="Rename file"
                   >
                     <Edit size={14} />
@@ -1253,7 +1280,7 @@ const FilesPanel = ({
                           </button>
                           <button
                             className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
-                            onClick={(e) => showRenameFileDialog(file._id, file.name, e)}
+                            onClick={(e) => showRenameFileDialog(file._id, file.name, file.difficulty, e)}
                             aria-label="Rename file"
                           >
                             <Edit size={14} />
@@ -1368,8 +1395,19 @@ const FilesPanel = ({
                             </div>
                             <div className="flex-grow overflow-hidden">
                               <div className="font-medium truncate">{file.name}</div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                              <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
                                 {file.language} • {new Date(file.lastModified).toLocaleDateString()}
+                                {file.difficulty && (
+                                  <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${
+                                    file.difficulty === 'easy' 
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                                      : file.difficulty === 'medium'
+                                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                  }`}>
+                                    {file.difficulty.charAt(0).toUpperCase() + file.difficulty.slice(1)}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1494,8 +1532,20 @@ const FilesPanel = ({
                           </div>
                           <div className="flex-grow overflow-hidden">
                             <div className="font-medium truncate">{file.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {file.language} • {new Date(file.lastModified).toLocaleDateString()}
+                            {/* Display difficulty tag below filename */}
+                            <div className="flex items-center space-x-2 mt-1">
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                                (file.difficulty || 'easy') === 'easy' 
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                                  : (file.difficulty || 'easy') === 'medium'
+                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                              }`}>
+                                {((file.difficulty || 'easy').charAt(0).toUpperCase() + (file.difficulty || 'easy').slice(1))}
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {file.language} • {new Date(file.lastModified).toLocaleDateString()}
+                              </span>
                             </div>
                           </div>
                           <div className="flex opacity-0 group-hover:opacity-100 ml-2 flex-shrink-0">
@@ -1513,7 +1563,7 @@ const FilesPanel = ({
                               className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                showRenameFileDialog(file._id, file.name, e);
+                                showRenameFileDialog(file._id, file.name, file.difficulty, e);
                               }}
                               aria-label="Rename file"
                             >
@@ -1759,6 +1809,7 @@ const FilesPanel = ({
         onRename={handleRename}
         itemName={renameDialog.itemName}
         itemType={renameDialog.itemType}
+        difficulty={renameDialog.difficulty}
       />
     </div>
   );

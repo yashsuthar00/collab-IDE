@@ -28,6 +28,7 @@ const FileSearchFilters = ({
     language: [],
     directory: '',
     isPublic: undefined,
+    difficulty: [],
     createdAfter: '',
     createdBefore: '',
     modifiedAfter: '',
@@ -86,6 +87,17 @@ const FileSearchFilters = ({
         return { ...prev, language: currentLanguages.filter(lang => lang !== language) };
       } else {
         return { ...prev, language: [...currentLanguages, language] };
+      }
+    });
+  };
+
+  const handleDifficultyToggle = (difficulty) => {
+    setFilters(prev => {
+      const currentDifficulties = Array.isArray(prev.difficulty) ? prev.difficulty : [];
+      if (currentDifficulties.includes(difficulty)) {
+        return { ...prev, difficulty: currentDifficulties.filter(diff => diff !== difficulty) };
+      } else {
+        return { ...prev, difficulty: [...currentDifficulties, difficulty] };
       }
     });
   };
@@ -222,6 +234,45 @@ const FileSearchFilters = ({
                 <option value="root">Root ({filterOptions.directories.rootFilesCount})</option>
                 {/* Would need to fetch directory info for proper labels */}
               </select>
+            </div>
+            
+            {/* Difficulty Level Filter */}
+            <div>
+              <label className="block text-sm font-medium mb-2 flex items-center">
+                <Filter size={16} className="mr-1" /> Difficulty Level
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleDifficultyToggle('easy')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium ${
+                    filters.difficulty?.includes('easy') 
+                      ? 'bg-green-100 text-green-800 border border-green-500' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-transparent'
+                  }`}
+                >
+                  Easy
+                </button>
+                <button
+                  onClick={() => handleDifficultyToggle('medium')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium ${
+                    filters.difficulty?.includes('medium') 
+                      ? 'bg-yellow-100 text-yellow-800 border border-yellow-500' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-transparent'
+                  }`}
+                >
+                  Medium
+                </button>
+                <button
+                  onClick={() => handleDifficultyToggle('hard')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium ${
+                    filters.difficulty?.includes('hard') 
+                      ? 'bg-red-100 text-red-800 border border-red-500' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-transparent'
+                  }`}
+                >
+                  Hard
+                </button>
+              </div>
             </div>
             
             {/* Visibility Filter */}

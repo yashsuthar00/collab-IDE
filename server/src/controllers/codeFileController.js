@@ -11,7 +11,7 @@ const logger = require('../utils/logger');
 exports.saveCurrentCode = async (req, res) => {
   try {
     logger.debug('saveCurrentCode called', req.body);
-    const { name, code, language, directoryId, isPublic, fileId } = req.body;
+    const { name, code, language, directoryId, isPublic, fileId, difficulty } = req.body;
     
     // Validate required fields
     if (!name || !code || !language) {
@@ -65,6 +65,11 @@ exports.saveCurrentCode = async (req, res) => {
         existingFile.isPublic = isPublic;
       }
       
+      // Update difficulty if provided
+      if (difficulty !== undefined) {
+        existingFile.difficulty = difficulty;
+      }
+      
       // Update lastModified timestamp
       existingFile.lastModified = new Date();
       
@@ -73,7 +78,9 @@ exports.saveCurrentCode = async (req, res) => {
       // Transform the response to maintain API compatibility
       const responseFile = {
         ...existingFile.toObject(),
-        language: existingFile.programmingLanguage
+        language: existingFile.programmingLanguage,
+        // Ensure difficulty is always set
+        difficulty: existingFile.difficulty || 'easy'
       };
       
       return res.json({
@@ -94,7 +101,7 @@ exports.saveCurrentCode = async (req, res) => {
           return res.status(404).json({ msg: 'Directory not found' });
         }
         
-        if (directory.owner.toString() !== req.user.id) {
+        if (directory.owner.toString() !== req.user.id) { 
           return res.status(401).json({ msg: 'Not authorized to use this directory' });
         }
       }
@@ -104,6 +111,7 @@ exports.saveCurrentCode = async (req, res) => {
         name,
         code,
         programmingLanguage: language, // Updated field name
+        difficulty: difficulty || 'easy', // Add difficulty with default
         owner: req.user.id,
         directory: directoryId === "null" ? null : directoryId || null,
         isPublic: isPublic || false
@@ -114,7 +122,9 @@ exports.saveCurrentCode = async (req, res) => {
       // Transform the response to maintain API compatibility
       const responseFile = {
         ...newFile.toObject(),
-        language: newFile.programmingLanguage
+        language: newFile.programmingLanguage,
+        // Ensure difficulty is always set
+        difficulty: newFile.difficulty || 'easy'
       };
       
       return res.status(201).json({
@@ -160,6 +170,7 @@ exports.duplicateCodeFile = async (req, res) => {
       name: newName || `${sourceFile.name} (copy)`,
       code: sourceFile.code,
       programmingLanguage: sourceFile.programmingLanguage, // Updated field name
+      difficulty: sourceFile.difficulty || 'easy', // Preserve difficulty or default to easy
       owner: req.user.id,
       directory: directoryId || sourceFile.directory,
       isPublic: false // Default to private for duplicated files
@@ -203,6 +214,10 @@ exports.getRecentFiles = async (req, res) => {
     const transformedFiles = recentFiles.map(file => {
       const fileObj = file.toObject();
       fileObj.language = fileObj.programmingLanguage;
+      // Ensure difficulty is set
+      if (!fileObj.difficulty) {
+        fileObj.difficulty = 'easy';
+      }
       return fileObj;
     });
     

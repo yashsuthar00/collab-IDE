@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { X, Edit } from 'lucide-react';
 
-const RenameDialog = ({ isOpen, onClose, onRename, itemName, itemType }) => {
+const RenameDialog = ({ isOpen, onClose, onRename, itemName, itemType, difficulty }) => {
   const [newName, setNewName] = useState('');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('easy');
   
   useEffect(() => {
     if (isOpen) {
       setNewName(itemName || '');
+      setSelectedDifficulty(difficulty || 'easy');
+      console.log('RenameDialog opened with difficulty:', difficulty);
+      console.log('Button should be disabled:', (!itemName.trim() || itemName.trim() === itemName) && (difficulty || 'easy') === difficulty);
     }
-  }, [isOpen, itemName]);
+  }, [isOpen, itemName, difficulty]);
   
   const handleSubmit = (e) => {
     e.preventDefault();
     if (newName && newName.trim() !== '') {
-      onRename(newName.trim());
+      console.log('Submitting rename with name:', newName, 'difficulty:', selectedDifficulty);
+      onRename(newName.trim(), selectedDifficulty);
     }
   };
   
@@ -51,6 +56,49 @@ const RenameDialog = ({ isOpen, onClose, onRename, itemName, itemType }) => {
             />
           </div>
           
+          {itemType === 'file' && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">
+                Difficulty Level
+              </label>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDifficulty('easy')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                    selectedDifficulty === 'easy' 
+                      ? 'bg-green-100 text-green-800 border-2 border-green-500' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600'
+                  }`}
+                >
+                  Easy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDifficulty('medium')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                    selectedDifficulty === 'medium' 
+                      ? 'bg-yellow-100 text-yellow-800 border-2 border-yellow-500' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600'
+                  }`}
+                >
+                  Medium
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDifficulty('hard')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                    selectedDifficulty === 'hard' 
+                      ? 'bg-red-100 text-red-800 border-2 border-red-500' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600'
+                  }`}
+                >
+                  Hard
+                </button>
+              </div>
+            </div>
+          )}
+          
           <div className="flex justify-end space-x-3">
             <button
               type="button"
@@ -61,9 +109,9 @@ const RenameDialog = ({ isOpen, onClose, onRename, itemName, itemType }) => {
             </button>
             <button
               type="submit"
-              disabled={!newName.trim() || newName.trim() === itemName}
+              disabled={(!newName.trim() || newName.trim() === itemName) && selectedDifficulty === difficulty}
               className={`px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 
-                ${(!newName.trim() || newName.trim() === itemName) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                ${((!newName.trim() || newName.trim() === itemName) && selectedDifficulty === difficulty) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Rename
             </button>
