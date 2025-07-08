@@ -959,7 +959,8 @@ function CollaborativeApp() {
         code,
         language: language.id,
         directoryId: fileData.directoryId,
-        isPublic: fileData.isPublic
+        isPublic: fileData.isPublic,
+        difficulty: fileData.difficulty || 'easy'
       });
       
       if (response && response.data && response.data.success) {

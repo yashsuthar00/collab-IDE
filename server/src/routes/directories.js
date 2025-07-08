@@ -153,10 +153,15 @@ router.get('/tree', auth, async (req, res) => {
       .lean();
     
     // Transform files to add language property
-    const transformedFiles = files.map(file => ({
-      ...file,
-      language: file.programmingLanguage // Add language property
-    }));
+    const transformedFiles = files.map(file => {
+      // Create a new object with all properties and add language
+      return {
+        ...file,
+        language: file.programmingLanguage,
+        // Explicitly include difficulty if it exists to ensure it's present in the response
+        difficulty: file.difficulty || 'easy'
+      };
+    });
     
     // Build the directory tree
     const buildTree = (parentId = null) => {
@@ -271,8 +276,14 @@ router.get('/:id', optionalAuth, async (req, res) => {
     const transformedFiles = files.map(file => {
       const fileObj = file.toObject();
       fileObj.language = fileObj.programmingLanguage;
+      // Ensure difficulty is set
+      if (!fileObj.difficulty) {
+        fileObj.difficulty = 'easy';
+      }
       return fileObj;
     });
+    
+    console.log('Directory API response files with difficulty:', transformedFiles.map(f => ({ name: f.name, difficulty: f.difficulty })));
     
     res.json({
       directory,

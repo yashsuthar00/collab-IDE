@@ -270,8 +270,11 @@ const api = {
     getFilterOptions: () => apiClient.get('/api/codefiles/filter-options'),
     
     // Fix the renaming functionality to use the updateFile endpoint
-    renameFile: (fileId, newName) => {
-      return apiClient.put(`/api/codefiles/${fileId}`, { name: newName });
+    renameFile: (fileId, newName, difficulty) => {
+      return apiClient.put(`/api/codefiles/${fileId}`, { 
+        name: newName,
+        difficulty: difficulty 
+      });
     },
     
     // Fix the file moving functionality to use the updateFile endpoint

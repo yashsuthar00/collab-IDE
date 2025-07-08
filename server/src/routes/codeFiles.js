@@ -66,6 +66,7 @@ router.post('/', auth, async (req, res) => {
       name,
       code,
       programmingLanguage: language, // Updated field name
+      difficulty: req.body.difficulty || 'easy', // Add difficulty with default
       owner: req.user.id,
       directory: directoryId || null,
       isPublic: isPublic || false
@@ -124,6 +125,14 @@ router.get('/', auth, async (req, res) => {
       const languages = language.split(',').map(lang => lang.trim());
       if (languages.length > 0) {
         query.programmingLanguage = { $in: languages };
+      }
+    }
+    
+    // Filter by difficulty (can be multiple, comma-separated)
+    if (req.query.difficulty) {
+      const difficulties = req.query.difficulty.split(',').map(diff => diff.trim());
+      if (difficulties.length > 0) {
+        query.difficulty = { $in: difficulties };
       }
     }
     
@@ -271,6 +280,13 @@ router.get('/:id', optionalAuth, async (req, res) => {
     const responseFile = codeFile.toObject();
     responseFile.language = responseFile.programmingLanguage;
     
+    // Ensure difficulty is always present
+    if (!responseFile.difficulty) {
+      responseFile.difficulty = 'easy';
+    }
+    
+    console.log('Sending file with difficulty:', responseFile.difficulty);
+    
     res.json(responseFile);
   } catch (err) {
     logger.error('Error getting code file:', err);
@@ -330,6 +346,7 @@ router.put('/:id', auth, async (req, res) => {
     if (code !== undefined) codeFile.code = code;
     if (language) codeFile.programmingLanguage = language; // Updated field name
     if (isPublic !== undefined) codeFile.isPublic = isPublic;
+    if (req.body.difficulty !== undefined) codeFile.difficulty = req.body.difficulty;
     
     // Update lastModified timestamp
     codeFile.lastModified = Date.now();
