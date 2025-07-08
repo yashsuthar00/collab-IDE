@@ -21,6 +21,7 @@ import { RoomProvider, useRoom } from './contexts/RoomContext';
 import { FriendsProvider } from './contexts/FriendsContext'; // Import FriendsProvider
 import api, { getConnectedSocket } from './utils/api';
 import { Analytics } from "@vercel/analytics/react"
+import { SpeedInsights } from "@vercel/speed-insights/react"
 import { 
   createMainTour, 
   createCollaborationTour, 
@@ -1361,6 +1362,7 @@ function App() {
         </RoomProvider>
       </FriendsProvider>
       <Analytics />
+      <SpeedInsights/>
     </Provider>
   );
 }
