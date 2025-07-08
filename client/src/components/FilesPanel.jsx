@@ -54,6 +54,7 @@ const FilesPanel = ({
 }) => {
   const [directories, setDirectories] = useState([]);
   const [files, setFiles] = useState([]);
+  const [directoriesFiles, setDirectoriesFiles] = useState({}); // Cache files for each directory
   const [currentDirectory, setCurrentDirectory] = useState('root');
   const [expandedDirs, setExpandedDirs] = useState(new Set(['root'])); 
   const [directoryTree, setDirectoryTree] = useState([]);
@@ -119,10 +120,14 @@ const FilesPanel = ({
         return newExpanded;
       });
       
-      fetchDirectoryContents(currentDirectory);
+      // If we don't have files for the current directory yet, fetch them
+      if (!directoriesFiles[currentDirectory]) {
+        fetchDirectoryContents(currentDirectory);
+      }
+      
       fetchDirectoryTree();
     }
-  }, [isOpen, isAuthenticated, currentDirectory]);
+  }, [isOpen, isAuthenticated]);
 
   // Fetch contents of the current directory - modified to load all files
   const fetchDirectoryContents = async (dirId) => {
@@ -151,7 +156,16 @@ const FilesPanel = ({
         
         // Sort directories and files with our utility function
         setDirectories(sortItems(unsortedDirectories));
-        setFiles(sortItems(unsortedFiles));
+        
+        // Store the files in our directories cache
+        const sortedFiles = sortItems(unsortedFiles);
+        setFiles(sortedFiles);
+        
+        // Update the directoriesFiles cache with the files for this directory
+        setDirectoriesFiles(prev => ({
+          ...prev,
+          [dirId]: sortedFiles
+        }));
       } else {
         setDirectories([]);
         setFiles([]);
@@ -216,10 +230,16 @@ const FilesPanel = ({
         // If the tree includes complete file data, store it in our files state as well
         if (Array.isArray(response.data)) {
           const allFiles = [];
+          const filesByDirectory = {};
+          
           const extractFilesFromTree = (items) => {
             items.forEach(item => {
               if (item.files && Array.isArray(item.files)) {
                 allFiles.push(...item.files);
+                
+                // Group files by directory
+                const dirId = item._id || 'root';
+                filesByDirectory[dirId] = (filesByDirectory[dirId] || []).concat(item.files);
               }
               if (item.children && Array.isArray(item.children)) {
                 extractFilesFromTree(item.children);
@@ -227,6 +247,18 @@ const FilesPanel = ({
             });
           };
           extractFilesFromTree(response.data);
+          
+          // Update the directoriesFiles cache with files from the tree
+          setDirectoriesFiles(prev => {
+            const newCache = { ...prev };
+            
+            // Add files from tree to cache for each directory
+            Object.entries(filesByDirectory).forEach(([dirId, dirFiles]) => {
+              newCache[dirId] = sortItems(dirFiles);
+            });
+            
+            return newCache;
+          });
           
           // Merge with existing files to ensure completeness
           if (allFiles.length > 0) {
@@ -262,6 +294,11 @@ const FilesPanel = ({
     setCurrentDirectory(dirId);
     setSelectedFile(null);
 
+    // If we don't have files for this directory yet, fetch them
+    if (!directoriesFiles[dirId]) {
+      fetchDirectoryContents(dirId);
+    }
+
     // On mobile, switch to content view after navigation
     if (isMobile) {
       setActiveView('content');
@@ -275,6 +312,11 @@ const FilesPanel = ({
       newExpanded.delete(dirId);
     } else {
       newExpanded.add(dirId);
+      
+      // If we don't have files for this directory yet, fetch them
+      if (!directoriesFiles[dirId]) {
+        fetchDirectoryContents(dirId);
+      }
     }
     setExpandedDirs(newExpanded);
   };
@@ -384,6 +426,8 @@ const FilesPanel = ({
         setIsCreatingFile(false);
         setNewFileName('');
         toast.success('File saved successfully');
+        
+        // Update the current directory files
         fetchDirectoryContents(currentDirectory);
         
         if (onSaveSuccess && response.data.file) {
@@ -455,6 +499,8 @@ const FilesPanel = ({
       setIsCreatingDir(false);
       setNewDirName('');
       toast.success('Directory created');
+      
+      // Only fetch the current directory contents
       fetchDirectoryContents(currentDirectory);
       fetchDirectoryTree();
     } catch (error) {
@@ -503,6 +549,14 @@ const FilesPanel = ({
         } else if (itemType === 'directory') {
           await api.directories.deleteDirectory(itemId, true);
           toast.success('Directory deleted');
+          
+          // Remove the directory from our cache
+          setDirectoriesFiles(prev => {
+            const newCache = { ...prev };
+            delete newCache[itemId];
+            return newCache;
+          });
+          
           fetchDirectoryContents(currentDirectory);
           fetchDirectoryTree();
           if (currentDirectory === itemId) {
@@ -599,6 +653,24 @@ const FilesPanel = ({
       if (itemType === 'file') {
         await api.files.renameFile(itemId, newName, difficulty || 'easy');
         toast.success('File renamed');
+        
+        // Update the file in our cache
+        setDirectoriesFiles(prev => {
+          const newCache = { ...prev };
+          Object.keys(newCache).forEach(dirId => {
+            const dirFiles = newCache[dirId];
+            const fileIndex = dirFiles.findIndex(f => f._id === itemId);
+            if (fileIndex !== -1) {
+              newCache[dirId] = [
+                ...dirFiles.slice(0, fileIndex),
+                { ...dirFiles[fileIndex], name: newName, difficulty: difficulty || 'easy' },
+                ...dirFiles.slice(fileIndex + 1)
+              ];
+            }
+          });
+          return newCache;
+        });
+        
         fetchDirectoryContents(currentDirectory);
         
         // Update selected file name if it's the one being renamed
@@ -677,27 +749,45 @@ const FilesPanel = ({
     if (!draggedItem || targetDirId === draggedItem.id) {
       setDraggedItem(null);
       return;
-    }
-
-    try {
-      if (draggedItem.type === 'file') {
-        await api.files.moveFile(draggedItem.id, targetDirId === 'root' ? null : targetDirId);
-        toast.success(`Moved ${draggedItem.name} to ${targetDirId === 'root' ? 'My Files' : 'selected folder'}`);
-      } else if (draggedItem.type === 'directory') {
-        // Prevent moving a directory inside itself or its children
-        if (isSubdirectory(draggedItem.id, targetDirId)) {
-          toast.error("Cannot move a folder into itself or its subfolder");
-          setDraggedItem(null);
-          return;
+    }      try {
+        if (draggedItem.type === 'file') {
+          await api.files.moveFile(draggedItem.id, targetDirId === 'root' ? null : targetDirId);
+          toast.success(`Moved ${draggedItem.name} to ${targetDirId === 'root' ? 'My Files' : 'selected folder'}`);
+          
+          // Update our directory file cache
+          setDirectoriesFiles(prev => {
+            const newCache = { ...prev };
+            
+            // Remove the file from all directories
+            Object.keys(newCache).forEach(dirId => {
+              newCache[dirId] = newCache[dirId].filter(file => file._id !== draggedItem.id);
+            });
+            
+            return newCache;
+          });
+          
+        } else if (draggedItem.type === 'directory') {
+          // Prevent moving a directory inside itself or its children
+          if (isSubdirectory(draggedItem.id, targetDirId)) {
+            toast.error("Cannot move a folder into itself or its subfolder");
+            setDraggedItem(null);
+            return;
+          }
+          
+          await api.directories.moveDirectory(draggedItem.id, targetDirId === 'root' ? null : targetDirId);
+          toast.success(`Moved ${draggedItem.name} to ${targetDirId === 'root' ? 'My Files' : 'selected folder'}`);
+          
+          // Remove the directory from our cache
+          setDirectoriesFiles(prev => {
+            const newCache = { ...prev };
+            delete newCache[draggedItem.id];
+            return newCache;
+          });
         }
         
-        await api.directories.moveDirectory(draggedItem.id, targetDirId === 'root' ? null : targetDirId);
-        toast.success(`Moved ${draggedItem.name} to ${targetDirId === 'root' ? 'My Files' : 'selected folder'}`);
-      }
-      
-      // Refresh the view
-      fetchDirectoryContents(currentDirectory);
-      fetchDirectoryTree();
+        // Refresh the view
+        fetchDirectoryContents(currentDirectory);
+        fetchDirectoryTree();
     } catch (error) {
       console.error('Error moving item:', error);
       toast.error('Failed to move item');
@@ -748,23 +838,31 @@ const FilesPanel = ({
     
     const isExpanded = expandedDirs.has(item._id);
     
-    // Get files that belong to this directory using various possible relationship fields
-    // More robust filtering to capture all possible file-directory relationships
-    const unsortedDirectoryFiles = item.files && Array.isArray(item.files) 
-      ? item.files 
-      : files.filter(file => 
-          file.directoryId === item._id || 
-          file.directory === item._id || 
-          file.parent === item._id ||
-          // Handle string or object references in the file
-          (typeof file.directory === 'object' && file.directory?._id === item._id) ||
-          (typeof file.parent === 'object' && file.parent?._id === item._id)
-        );
+    // Get files from the directoriesFiles cache if available, or fall back to filtering
+    const dirId = item._id;
+    let directoryFiles = directoriesFiles[dirId] || [];
     
-    // Sort the files within this directory
-    const directoryFiles = sortOption === 'date'
-      ? sortItemsByOption(unsortedDirectoryFiles)
-      : sortItems(unsortedDirectoryFiles);
+    // If no cached files for this directory, try to find files by filtering
+    if (directoryFiles.length === 0) {
+      const unsortedDirectoryFiles = item.files && Array.isArray(item.files) 
+        ? item.files 
+        : files.filter(file => 
+            file.directoryId === item._id || 
+            file.directory === item._id || 
+            file.parent === item._id ||
+            // Handle string or object references in the file
+            (typeof file.directory === 'object' && file.directory?._id === item._id) ||
+            (typeof file.parent === 'object' && file.parent?._id === item._id)
+          );
+      
+      // Apply sort option to these files
+      directoryFiles = sortOption === 'date'
+        ? sortItemsByOption(unsortedDirectoryFiles)
+        : sortItems(unsortedDirectoryFiles);
+    } else if (sortOption === 'date') {
+      // Apply date sorting to cached files if needed
+      directoryFiles = sortItemsByOption(directoryFiles);
+    }
     
     // Sort the children directories if they exist
     const sortedChildren = item.children && item.children.length > 0
@@ -848,16 +946,6 @@ const FilesPanel = ({
                 </div>
                 <div className="truncate text-sm">
                   <span>{file.name}</span>
-                  {/* Show difficulty tag inline (next to file name) */}
-                  {/* <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${
-                    (file.difficulty || 'easy') === 'easy' 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                      : (file.difficulty || 'easy') === 'medium'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                  }`}>
-                    {((file.difficulty || 'easy').charAt(0).toUpperCase() + (file.difficulty || 'easy').slice(1))}
-                  </span> */}
                   {sortOption === 'date' && file.lastModified && (
                     <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                       {new Date(file.lastModified).toLocaleDateString()}
