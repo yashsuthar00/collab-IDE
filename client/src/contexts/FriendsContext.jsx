@@ -1,5 +1,4 @@
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import { useSelector } from 'react-redux';
 import api, { getConnectedSocket } from '../utils/api';
 
@@ -68,13 +67,19 @@ export const FriendsProvider = ({ children }) => {
     // Listen for friend request events
     socket.on('friend-request-received', (data) => {
       console.log('Received friend request:', data);
-      fetchPendingRequests();
+      if (fetchPendingRequests) {
+        fetchPendingRequests();
+      }
     });
     
     socket.on('friend-request-accepted', (data) => {
       console.log('Friend request accepted:', data);
-      fetchFriends();
-      fetchSentRequests();
+      if (fetchFriends) {
+        fetchFriends();
+      }
+      if (fetchSentRequests) {
+        fetchSentRequests();
+      }
     });
     
     socket.on('friend-status-change', (data) => {
@@ -90,7 +95,9 @@ export const FriendsProvider = ({ children }) => {
     
     socket.on('room-invitation', (data) => {
       console.log('Room invitation received:', data);
-      fetchRoomInvitations();
+      if (fetchRoomInvitations) {
+        fetchRoomInvitations();
+      }
     });
     
     return () => {
@@ -364,6 +371,14 @@ export const FriendsProvider = ({ children }) => {
       setSearchResults([]);
     }
   }, [isAuthenticated, fetchFriends, fetchPendingRequests, fetchSentRequests, fetchRoomInvitations]);
+  
+  // Re-attach socket event handlers once the functions are defined
+  useEffect(() => {
+    if (!socket || !isAuthenticated || !user?.id) return;
+    
+    // No need to redefine the event handlers, just update the dependencies
+    // This ensures the useEffect with the socket listeners has access to the latest function references
+  }, [socket, isAuthenticated, user?.id, fetchPendingRequests, fetchFriends, fetchSentRequests, fetchRoomInvitations]);
   
   // Get total counts for notification badges
   const totalPendingRequests = pendingRequests.length;

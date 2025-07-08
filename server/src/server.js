@@ -6,24 +6,20 @@ const dotenv = require('dotenv');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const connectDB = require('./config/db'); // Import database connection
-const passport = require('passport');
-const passportConfig = require('./config/passport');
-const session = require('express-session');
-const cookieParser = require('cookie-parser');
-const User = require('./models/User'); // Import User model
-const codeFileRoutes = require('./routes/codeFiles');
-const directoryRoutes = require('./routes/directories');
-const sharedCodeRoutes = require('./routes/sharedCodeRoutes');
-const emailRoutes = require('./routes/emailRoutes'); // Import email routes
-const leetcodeRoutes = require('./routes/leetcodeRoutes'); // Import leetcode routes
 const logger = require('./utils/logger');
-const errorHandler = require('./middleware/errorHandler');
 const jwt = require('jsonwebtoken');
+
+// Import our room socket handler
+const { setupSocketHandlers } = require('./services/socketHandler');
+// Import Yjs WebSocket handler
+const { setupYjsHandler } = require('./services/yjsHandler');
 
 // Load environment variables
 dotenv.config();
 
-const app = express();
+// Import the configured Express app
+const app = require('./app');
+
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0'; // Add HOST configuration
 const server = http.createServer(app);
@@ -38,64 +34,6 @@ const io = new Server(server, {
 connectDB()
   .then(() => console.log('MongoDB connection established'))
   .catch(err => console.error('MongoDB connection error:', err));
-
-// Middleware
-
-// CORS middleware with more permissive settings for development
-app.use(cors({
-  origin: function(origin, callback) {
-    // Log the incoming origin for debugging
-    console.log('CORS request origin:', origin);
-
-    // Allow requests from any origin in development
-    if (process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-      return;
-    }
-
-    // TEMP: Uncomment the next line to allow all origins in production for debugging
-    // callback(null, true); return;
-
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'https://colab-ide.vercel.app',
-      'https://collab-ide.yashsuthar.com',
-      'chrome-extension://dhgdbcdgbjjojnddeoicfebcidppkjdm' // Replace with your real extension ID
-    ];
-
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked request from:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-app.use(express.json());
-app.use(cookieParser());
-
-// Session configuration
-app.use(session({
-  secret: process.env.JWT_SECRET || 'collab-ide-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
-
-// Initialize passport
-passportConfig();
-app.use(passport.initialize());
-app.use(passport.session());
 
 // Language configuration for Piston API
 const languageVersions = {
@@ -122,41 +60,6 @@ const ACCESS_LEVELS = {
   RUNNER: 'runner',
   VIEWER: 'viewer',
 };
-
-// Add auth routes
-app.use('/api/auth', require('./routes/authRoutes'));
-
-// Add friend and invitation routes
-app.use('/api/friends', require('./routes/friendRoutes'));
-app.use('/api/invitations', require('./routes/invitationRoutes'));
-
-// Add code file and directory routes
-app.use('/api/codefiles', codeFileRoutes);
-app.use('/api/directories', directoryRoutes);
-
-// Add shared code routes
-app.use('/api/shared', sharedCodeRoutes);
-
-// Add email routes
-app.use('/api/email', emailRoutes);
-
-// Add leetcode routes
-app.use('/api/leetcode', leetcodeRoutes);
-
-// Add error handling middleware after all routes
-app.use(errorHandler);
-
-// Simple request logger for debugging
-app.use((req, res, next) => {
-  logger.debug(`${req.method} ${req.path}`, {
-    authenticated: !!req.user,
-    userId: req.user?.id,
-    headers: {
-      authorization: req.headers.authorization ? '[PRESENT]' : '[NOT PRESENT]'
-    }
-  });
-  next();
-});
 
 // Debug endpoint for auth status
 app.get('/api/debug/auth-status', (req, res) => {
@@ -1052,6 +955,12 @@ io.on('connection', (socket) => {
     });
   });
 });
+
+// Setup socket handlers
+setupSocketHandlers(io);
+
+// Setup Yjs WebSocket handler
+setupYjsHandler(server);
 
 app.get('/ping', (req, res) => {
   res.status(200).send('Pong');

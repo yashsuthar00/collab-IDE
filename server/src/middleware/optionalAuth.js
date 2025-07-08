@@ -7,7 +7,7 @@ const logger = require('../utils/logger');
  * Verifies JWT token if provided, but allows requests without token
  * Useful for routes that can be both public and private
  */
-module.exports = async function(req, res, next) {
+exports.optionalAuth = async function(req, res, next) {
   // Get token from header
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
@@ -21,18 +21,23 @@ module.exports = async function(req, res, next) {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'collab-ide-secret');
     
-    // Add user to request
-    req.user = {
-      id: decoded.id || decoded.user?.id // Handle both token formats
-    };
+    // Get user ID from token
+    const userId = decoded.id || decoded.user?.id; // Handle both token formats
+    
+    if (!userId) {
+      req.user = null;
+      return next();
+    }
 
-    // If you need to fetch the full user object from DB (optional)
-    const user = await User.findById(req.user.id).select('-password');
+    // Fetch the full user object from DB
+    const user = await User.findById(userId).select('-password');
+    
     if (!user) {
       // If user not found but token valid, just continue as unauthenticated
       req.user = null;
     } else {
-      req.user.email = user.email;
+      // Set the full user object on the request
+      req.user = user;
     }
     
     next();

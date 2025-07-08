@@ -1,14 +1,113 @@
+const express = require('express');
+const router = express.Router();
+const auth = require('../middleware/auth');
+const optionalAuth = require('../middleware/optionalAuth');
 const CodeFile = require('../models/CodeFile');
 const Directory = require('../models/Directory');
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 
-/**
- * Save the current code from the editor to a new or existing code file
- * @param {Object} req - The request object
- * @param {Object} res - The response object
- */
-exports.saveCurrentCode = async (req, res) => {
+// GET /api/codefiles/recent
+router.get('/recent', auth, async (req, res) => {
+  try {
+    const { limit = 5 } = req.query;
+    
+    const recentFiles = await CodeFile.find({ owner: req.user.id })
+      .sort({ lastModified: -1 })
+      .limit(parseInt(limit))
+      .select('-code')
+      .populate('directory', 'name');
+    
+    // Transform response to maintain API compatibility
+    const transformedFiles = recentFiles.map(file => {
+      const fileObj = file.toObject();
+      fileObj.language = fileObj.programmingLanguage;
+      return fileObj;
+    });
+    
+    res.json(transformedFiles);
+  } catch (err) {
+    logger.error('Error getting recent files:', err);
+    res.status(500).json({ msg: 'Server error', details: err.message });
+  }
+});
+
+// GET /api/codefiles/filter-options
+router.get('/filter-options', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find all code files for this user
+    const files = await CodeFile.find({ owner: userId })
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    // Extract unique languages and count files per language
+    const languages = [...new Set(files.map(file => file.programmingLanguage))];
+    
+    const languageCounts = {};
+    for (const file of files) {
+      const lang = file.programmingLanguage;
+      languageCounts[lang] = (languageCounts[lang] || 0) + 1;
+    }
+    
+    // Find oldest and newest files
+    const oldestFile = files.length > 0 ? files.reduce((prev, curr) => 
+      new Date(prev.createdAt) < new Date(curr.createdAt) ? prev : curr
+    ) : null;
+    
+    const newestFile = files.length > 0 ? files.reduce((prev, curr) => 
+      new Date(prev.createdAt) > new Date(curr.createdAt) ? prev : curr
+    ) : null;
+    
+    // Count files per directory
+    const directoriesWithFiles = {};
+    let rootFilesCount = 0;
+    
+    for (const file of files) {
+      if (file.directory) {
+        directoriesWithFiles[file.directory] = (directoriesWithFiles[file.directory] || 0) + 1;
+      } else {
+        rootFilesCount++;
+      }
+    }
+    
+    // Get directory names
+    const directoryIds = Object.keys(directoriesWithFiles);
+    let directoriesWithNames = {};
+    
+    if (directoryIds.length > 0) {
+      const directories = await Directory.find({ 
+        _id: { $in: directoryIds.map(id => mongoose.Types.ObjectId(id)) },
+        owner: userId
+      }).select('_id name').lean();
+      
+      // Replace IDs with names in the count object
+      for (const dir of directories) {
+        directoriesWithNames[dir.name] = directoriesWithFiles[dir._id];
+      }
+    }
+    
+    res.json({
+      languages,
+      languageCounts,
+      dateRange: {
+        oldest: oldestFile ? oldestFile.createdAt : null,
+        newest: newestFile ? newestFile.createdAt : null
+      },
+      directories: {
+        withFiles: directoriesWithNames,
+        rootFilesCount
+      }
+    });
+  } catch (err) {
+    logger.error('Error getting filter options:', err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// POST /api/codefiles/save-current
+router.post('/save-current', auth, async (req, res) => {
   try {
     logger.debug('saveCurrentCode called', req.body);
     const { name, code, language, directoryId, isPublic, fileId } = req.body;
@@ -127,14 +226,10 @@ exports.saveCurrentCode = async (req, res) => {
     logger.error('Error saving code file:', err);
     return res.status(500).json({ msg: 'Server error', details: err.message });
   }
-};
+});
 
-/**
- * Duplicate a code file
- * @param {Object} req - The request object
- * @param {Object} res - The response object
- */
-exports.duplicateCodeFile = async (req, res) => {
+// POST /api/codefiles/duplicate
+router.post('/duplicate', auth, async (req, res) => {
   try {
     const { fileId, newName, directoryId } = req.body;
     
@@ -182,77 +277,10 @@ exports.duplicateCodeFile = async (req, res) => {
     logger.error('Error duplicating code file:', err);
     res.status(500).json({ msg: 'Server error', details: err.message });
   }
-};
+});
 
-/**
- * Get recent files for the user
- * @param {Object} req - The request object
- * @param {Object} res - The response object
- */
-exports.getRecentFiles = async (req, res) => {
-  try {
-    const { limit = 5 } = req.query;
-    
-    const recentFiles = await CodeFile.find({ owner: req.user.id })
-      .sort({ lastModified: -1 })
-      .limit(parseInt(limit))
-      .select('-code')
-      .populate('directory', 'name');
-    
-    // Transform response to maintain API compatibility
-    const transformedFiles = recentFiles.map(file => {
-      const fileObj = file.toObject();
-      fileObj.language = fileObj.programmingLanguage;
-      return fileObj;
-    });
-    
-    res.json(transformedFiles);
-  } catch (err) {
-    logger.error('Error getting recent files:', err);
-    res.status(500).json({ msg: 'Server error', details: err.message });
-  }
-};
-
-/**
- * Get a single file by ID
- * @param {Object} req - The request object
- * @param {Object} res - The response object
- */
-exports.getFileById = async (req, res) => {
-  try {
-    const codeFile = await CodeFile.findById(req.params.id)
-      .populate('directory', 'name')
-      .populate('owner', 'username email');
-    
-    if (!codeFile) {
-      return res.status(404).json({ msg: 'Code file not found' });
-    }
-    
-    // Check if user has access to this file
-    // A file can be accessed if:
-    // 1. The file is public, or
-    // 2. The user is the owner of the file
-    if (!codeFile.isPublic && (!req.user || codeFile.owner._id.toString() !== req.user.id)) {
-      return res.status(403).json({ msg: 'Access denied' });
-    }
-    
-    // Transform response to maintain API compatibility
-    const transformedFile = codeFile.toObject();
-    transformedFile.language = transformedFile.programmingLanguage;
-    
-    res.json(transformedFile);
-  } catch (err) {
-    logger.error('Error getting code file:', err);
-    res.status(500).json({ msg: 'Server error', details: err.message });
-  }
-};
-
-/**
- * Get all files for the current user with filtering and pagination
- * @param {Object} req - The request object
- * @param {Object} res - The response object
- */
-exports.getAllFiles = async (req, res) => {
+// GET /api/codefiles
+router.get('/', auth, async (req, res) => {
   try {
     // Enhanced query parameters for comprehensive filtering
     const { 
@@ -391,14 +419,37 @@ exports.getAllFiles = async (req, res) => {
     logger.error('Error getting code files:', err);
     res.status(500).json({ msg: 'Server error' });
   }
-};
+});
 
-/**
- * Create a new code file
- * @param {Object} req - The request object
- * @param {Object} res - The response object
- */
-exports.createCodeFile = async (req, res) => {
+// GET /api/codefiles/:id
+router.get('/:id', optionalAuth, async (req, res) => {
+  try {
+    const codeFile = await CodeFile.findById(req.params.id)
+      .populate('directory', 'name')
+      .populate('owner', 'username email');
+    
+    if (!codeFile) {
+      return res.status(404).json({ msg: 'Code file not found' });
+    }
+    
+    // Check if user has access to this file
+    if (!codeFile.isPublic && (!req.user || codeFile.owner._id.toString() !== req.user.id)) {
+      return res.status(403).json({ msg: 'Access denied' });
+    }
+    
+    // Transform response to maintain API compatibility
+    const transformedFile = codeFile.toObject();
+    transformedFile.language = transformedFile.programmingLanguage;
+    
+    res.json(transformedFile);
+  } catch (err) {
+    logger.error('Error getting code file:', err);
+    res.status(500).json({ msg: 'Server error', details: err.message });
+  }
+});
+
+// POST /api/codefiles
+router.post('/', auth, async (req, res) => {
   try {
     const { name, code, language, directoryId, isPublic } = req.body;
     
@@ -441,17 +492,13 @@ exports.createCodeFile = async (req, res) => {
     
     res.status(201).json(responseFile);
   } catch (err) {
-    logger.error('Error creating code file:', err);
+    console.error('Error creating code file:', err);
     res.status(500).json({ msg: 'Server error' });
   }
-};
+});
 
-/**
- * Update an existing code file
- * @param {Object} req - The request object
- * @param {Object} res - The response object
- */
-exports.updateCodeFile = async (req, res) => {
+// PUT /api/codefiles/:id
+router.put('/:id', auth, async (req, res) => {
   try {
     const { name, code, language, directoryId, isPublic } = req.body;
     
@@ -513,87 +560,35 @@ exports.updateCodeFile = async (req, res) => {
     
     res.status(500).json({ msg: 'Server error' });
   }
-};
+});
 
-/**
- * Delete a code file
- * @param {Object} req - The request object
- * @param {Object} res - The response object
- */
-/**
- * Get filter options for code files
- * @param {Object} req - The request object
- * @param {Object} res - The response object
- */
-exports.getFilterOptions = async (req, res) => {
+// DELETE /api/codefiles/:id
+router.delete('/:id', auth, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const codeFile = await CodeFile.findById(req.params.id);
     
-    // Find all code files for this user
-    const files = await CodeFile.find({ owner: userId })
-      .sort({ createdAt: -1 })
-      .lean();
-    
-    // Extract unique languages and count files per language
-    const languages = [...new Set(files.map(file => file.programmingLanguage))];
-    
-    const languageCounts = {};
-    for (const file of files) {
-      const lang = file.programmingLanguage;
-      languageCounts[lang] = (languageCounts[lang] || 0) + 1;
+    if (!codeFile) {
+      return res.status(404).json({ msg: 'Code file not found' });
     }
     
-    // Find oldest and newest files
-    const oldestFile = files.length > 0 ? files.reduce((prev, curr) => 
-      new Date(prev.createdAt) < new Date(curr.createdAt) ? prev : curr
-    ) : null;
-    
-    const newestFile = files.length > 0 ? files.reduce((prev, curr) => 
-      new Date(prev.createdAt) > new Date(curr.createdAt) ? prev : curr
-    ) : null;
-    
-    // Count files per directory
-    const directoriesWithFiles = {};
-    let rootFilesCount = 0;
-    
-    for (const file of files) {
-      if (file.directory) {
-        directoriesWithFiles[file.directory] = (directoriesWithFiles[file.directory] || 0) + 1;
-      } else {
-        rootFilesCount++;
-      }
+    // Check ownership
+    if (codeFile.owner.toString() !== req.user.id) {
+      return res.status(401).json({ msg: 'Not authorized to delete this file' });
     }
     
-    // Get directory names
-    const directoryIds = Object.keys(directoriesWithFiles);
-    let directoriesWithNames = {};
+    // Use deleteOne instead of deprecated remove() method
+    await CodeFile.deleteOne({ _id: codeFile._id });
     
-    if (directoryIds.length > 0) {
-      const directories = await Directory.find({ 
-        _id: { $in: directoryIds.map(id => mongoose.Types.ObjectId(id)) },
-        owner: userId
-      }).select('_id name').lean();
-      
-      // Replace IDs with names in the count object
-      for (const dir of directories) {
-        directoriesWithNames[dir.name] = directoriesWithFiles[dir._id];
-      }
-    }
-    
-    res.json({
-      languages,
-      languageCounts,
-      dateRange: {
-        oldest: oldestFile ? oldestFile.createdAt : null,
-        newest: newestFile ? newestFile.createdAt : null
-      },
-      directories: {
-        withFiles: directoriesWithNames,
-        rootFilesCount
-      }
-    });
+    res.json({ msg: 'Code file removed' });
   } catch (err) {
-    logger.error('Error getting filter options:', err);
+    logger.error('Error deleting code file:', err);
+    
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Code file not found' });
+    }
+    
     res.status(500).json({ msg: 'Server error' });
   }
-};
+});
+
+module.exports = router;

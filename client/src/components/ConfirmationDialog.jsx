@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, confirmLabel = "Confirm", cancelLabel = "Cancel" }) {
   const [isClosing, setIsClosing] = useState(false);
@@ -14,7 +14,7 @@ function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, confir
     
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen]);
+  }, [handleCancel, isOpen]);
   
   // Focus trap and initial focus
   useEffect(() => {
@@ -39,13 +39,13 @@ function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, confir
     };
   }, [isOpen]);
   
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
       onClose();
       setIsClosing(false);
     }, 200); // Match transition duration
-  };
+  }, [onClose]);
   
   const handleConfirm = () => {
     setIsClosing(true);

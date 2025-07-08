@@ -2,23 +2,22 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import SpecialCharactersBar from './SpecialCharactersBar';
 import { useRoom } from '../contexts/RoomContext';
+import { debounce } from '../utils/helpers';
 import { Maximize2, Minimize2, Expand, Eraser } from 'lucide-react';
 import MonacoYjsBinding from './MonacoYjsBinding';
 import { v4 as uuidv4 } from 'uuid';
 
-// We're exporting this function so it can be used elsewhere in the application
-// Exposing this as a named export with a capital prefix to match ESLint rules
-export function GetRandomUserColor() {
+// Helper function to generate random colors for user cursors
+const getRandomColor = () => {
   const colors = [
     '#FF6B6B', '#4ECDC4', '#FFE66D', '#1A535C', '#F9C80E', 
     '#FF8C42', '#A4036F', '#048BA8', '#16DB93', '#EFBCD5'
   ];
   return colors[Math.floor(Math.random() * colors.length)];
-}
+};
 
 // Create a color map to ensure users always get the same color
-// This map is used by the MonacoYjsBinding component
-const USER_COLOR_MAP = new Map();
+const userColorMap = new Map();
 
 // Generate a unique client ID for this editor instance
 const CLIENT_ID = uuidv4();
@@ -39,12 +38,21 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
   const monacoRef = useRef(null);
   const [showCharsBar, setShowCharsBar] = useState(window.innerWidth < 1024);
   const [showSpecialChars, setShowSpecialChars] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   
   // Get room context
   const { isInRoom, slug, currentUser, yDoc, provider } = useRoom();
+  
+  // Function to get a consistent color for a user
+  const getUserColor = useCallback((userId) => {
+    if (!userColorMap.has(userId)) {
+      userColorMap.set(userId, getRandomColor());
+    }
+    return userColorMap.get(userId);
+  }, []);
 
   // Editor mount handler
   const handleEditorDidMount = useCallback((editor, monaco) => {
@@ -218,16 +226,9 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
 
   // Set up iOS detection
   useEffect(() => {
-    // iOS detection is performed but not stored as a state variable
-    // to avoid the lint warning
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      
-    // Use the value directly if needed, for example:
-    if (isIOSDevice) {
-      // iOS-specific handling would go here
-      console.debug('iOS device detected');
-    }
+    setIsIOS(isIOSDevice);
   }, []);
 
   // Reset editor content

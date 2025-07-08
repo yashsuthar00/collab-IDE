@@ -30,7 +30,10 @@
     "sanitize-html": "^2.17.0",
     "socket.io": "^4.8.1",
     "uuid": "^9.0.1",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "ws": "^8.18.3",
+    "y-websocket": "^1.5.0",
+    "yjs": "^13.6.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

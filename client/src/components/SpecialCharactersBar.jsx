@@ -87,7 +87,7 @@ const SpecialCharactersBar = ({ onInsert, language }) => {
       expanded,
       characterSetsLength: characterSets.length
     });
-  }, [language, expanded]);
+  }, [language, expanded, characterSets.length]);
 
   // Handle insertion of special character
   const handleInsert = (insertText, event) => {

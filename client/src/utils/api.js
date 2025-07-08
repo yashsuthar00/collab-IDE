@@ -352,7 +352,58 @@ const api = {
     deleteSolution: async (id) => {
       return apiClient.delete(`/api/leetcode/${id}`);
     }
-  }
+  },
+  
+  // Room API
+  rooms: {
+    // Get room details
+    getRoomDetails: (slug) => apiClient.get(`/api/rooms/${slug}`),
+    
+    // Create a new room
+    createRoom: (roomData) => apiClient.post('/api/rooms', roomData),
+    
+    // Update room settings
+    updateRoomSettings: (slug, settings) => apiClient.put(`/api/rooms/${slug}/settings`, settings),
+    
+    // Get users in a room
+    getRoomUsers: (slug) => apiClient.get(`/api/rooms/${slug}/users`),
+    
+    // Update user access level
+    updateUserAccess: (slug, userId, accessLevel) => 
+      apiClient.put(`/api/rooms/${slug}/users/${userId}/access`, { accessLevel }),
+    
+    // Join a room
+    joinRoom: (slug) => apiClient.post(`/api/rooms/${slug}/join`),
+    
+    // Leave a room
+    leaveRoom: (slug) => apiClient.post(`/api/rooms/${slug}/leave`),
+    
+    // Add chat message
+    addChatMessage: (slug, message) => apiClient.post(`/api/rooms/${slug}/chat`, { message }),
+    
+    // Get chat messages
+    getChatMessages: (slug) => apiClient.get(`/api/rooms/${slug}/chat`),
+    
+    // Delete a room
+    deleteRoom: (slug) => apiClient.delete(`/api/rooms/${slug}`),
+    
+    // Update room code (fallback to Yjs)
+    updateRoomCode: (slug, code, version) => apiClient.put(`/api/rooms/${slug}/code`, { code, version }),
+    
+    // Extend room expiration
+    extendRoomExpiration: (slug, days) => apiClient.post(`/api/rooms/${slug}/extend`, { days }),
+    
+    // Transfer room ownership
+    transferOwnership: (slug, newOwnerId) => apiClient.post(`/api/rooms/${slug}/transfer-ownership`, { newOwnerId }),
+    
+    // List public rooms
+    listPublicRooms: (page = 1, limit = 10) => 
+      apiClient.get('/api/rooms', { params: { page, limit } }),
+    
+    // Get user's rooms
+    getUserRooms: (page = 1, limit = 10) => 
+      apiClient.get('/api/rooms/user/rooms', { params: { page, limit } })
+  },
 };
 
 // Enhanced Socket.io integration for real-time collaboration

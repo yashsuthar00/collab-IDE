@@ -1,7 +1,9 @@
 import { createBrowserRouter } from 'react-router-dom';
 import App from './App';
+import RoomPage from './pages/RoomPage';
 import OAuthCallback from './components/OAuthCallback';
 import ErrorPage from './components/ErrorPage';
+import { RoomProvider } from './contexts/RoomContext';
 
 // Create router with the correct paths and components
 const router = createBrowserRouter([
@@ -11,8 +13,12 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />
   },
   {
-    path: '/room/:roomId',
-    element: <App />,
+    path: '/room/:slug',
+    element: (
+      <RoomProvider>
+        <RoomPage />
+      </RoomProvider>
+    ),
     errorElement: <ErrorPage />
   },
   {

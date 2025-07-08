@@ -126,7 +126,7 @@ function CollaborativeApp() {
   const [isRecentFilesOpen, setIsRecentFilesOpen] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
   const [isFileDialogOpen, setIsFileDialogOpen] = useState(false); // Add this state
-  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+
 
   const [isPanelsSwapped, setIsPanelsSwapped] = useState(() => {
     // Load user preference from localStorage
@@ -994,17 +994,7 @@ function CollaborativeApp() {
     localStorage.setItem('panelsSwapped', newSwappedState.toString());
   }, [isPanelsSwapped]);
 
-  // Function to reset the code editor to a completely blank state
-  const resetCodeEditor = useCallback(() => {
-    // Set code to empty string - completely blank with no signature
-    setCode('');
-    
-    // Clear current file selection
-    setCurrentFile(null);
-    
-    // Show success message
-    toast.success('Code editor has been reset');
-  }, []);
+
 
 
   return (

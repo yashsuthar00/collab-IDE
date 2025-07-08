@@ -1,7 +1,6 @@
 import React from 'react';
 import { Check, X, Users } from 'lucide-react';
 import { useFriends } from '../contexts/FriendsContext';
-import { useNavigate } from 'react-router-dom';
 import { useRoom } from '../contexts/RoomContext';
 import UserAvatar from './UserAvatar';
 import { getFromStorage } from '../utils/storage';
@@ -9,7 +8,6 @@ import { getFromStorage } from '../utils/storage';
 const RoomInvitationAlert = ({ invitation }) => {
   const { actions } = useFriends();
   const { joinRoom } = useRoom();
-  const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = React.useState(false);
   
   const handleAccept = async () => {

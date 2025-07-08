@@ -581,6 +581,23 @@ export const RoomProvider = ({ children }) => {
     }
   };
   
+  // Leave the current room
+  const leaveRoom = useCallback(() => {
+    try {
+      if (state.slug && socket) {
+        socket.emit('leave-room', { slug: state.slug });
+      }
+      
+      dispatch({ type: ACTION_TYPES.LEAVE_ROOM });
+      removeFromStorage('current_room');
+      
+      // Navigate to home
+      navigate('/');
+    } catch (error) {
+      console.error('Error leaving room:', error);
+    }
+  }, [state.slug, socket, dispatch, navigate]);
+  
   // Update user's cursor position
   const updateCursor = (position, selection) => {
     if (!state.slug || !socket) return;

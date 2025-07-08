@@ -8,6 +8,10 @@ const roomRoutes = require('./routes/roomRoutes');
 const sharedCodeRoutes = require('./routes/sharedCodeRoutes');
 const emailRoutes = require('./routes/emailRoutes');
 const leetcodeRoutes = require('./routes/leetcodeRoutes'); // Make sure this is imported
+const codeFileRoutes = require('./routes/codeFilesRoutes'); // Use the new routes file
+const directoriesRoutes = require('./routes/directories');
+const friendRoutes = require('./routes/friendRoutes');
+const invitationRoutes = require('./routes/invitationRoutes');
 const { checkClientVersion } = require('./middleware/versionMiddleware');
 const logger = require('./utils/logger'); // Import logger
 
@@ -41,7 +45,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/shared', sharedCodeRoutes);
 app.use('/api/email', emailRoutes);
-app.use('/api/leetcode', leetcodeRoutes); // Make sure this is correctly mounted
+app.use('/api/leetcode', leetcodeRoutes);
+app.use('/api/codefiles', codeFileRoutes);
+app.use('/api/directories', directoriesRoutes);
+app.use('/api/friends', friendRoutes);
+app.use('/api/invitations', invitationRoutes);
 
 // Health check route
 app.get('/ping', (req, res) => {

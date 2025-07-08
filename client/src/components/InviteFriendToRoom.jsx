@@ -5,7 +5,7 @@ import { findAllFriends } from '../utils/roomService';
 import UserAvatar from './UserAvatar';
 
 const InviteFriendToRoom = () => {
-  const { roomId, roomName, currentUser, inviteUserToRoom } = useRoom();
+  const { currentUser, inviteUserToRoom } = useRoom();
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
