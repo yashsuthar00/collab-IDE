@@ -137,6 +137,10 @@ function CollaborativeApp() {
   // State to track which hint to show
   const [showSwapHint, setShowSwapHint] = useState(false);
 
+  // --- Always use the latest code from the editor ---
+  const latestCodeRef = React.useRef("");
+  const setLatestCodeRef = val => { latestCodeRef.current = val; };
+
   // Auto-hide the divider hint after a few seconds
   useEffect(() => {
     if (showDividerHint) {
@@ -599,7 +603,7 @@ function CollaborativeApp() {
     try {
       setLoading(true);
       const response = await api.execute.runCode(sessionId, { 
-        code, 
+        code: latestCodeRef.current || code, 
         language: language.id, 
         input 
       });
@@ -1085,6 +1089,7 @@ function CollaborativeApp() {
                   onRunCode={handleRunCode}
                   readOnly={isInRoom && !checkPermission('EDIT_CODE')}
                   isFilesPanelOpen={isFilesPanelOpen}
+                  setLatestCodeRef={setLatestCodeRef}
                 />
               </ErrorBoundary>
             </div>
@@ -1269,6 +1274,7 @@ function CollaborativeApp() {
                   onRunCode={handleRunCode}
                   readOnly={isInRoom && !checkPermission('EDIT_CODE')}
                   isFilesPanelOpen={isFilesPanelOpen}
+                  setLatestCodeRef={setLatestCodeRef}
                 />
               </ErrorBoundary>
             </div>

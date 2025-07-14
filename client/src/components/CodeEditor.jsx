@@ -36,7 +36,7 @@ const logger = {
   error: (...args) => LOG_LEVEL !== 'none' ? console.error(...args) : null,
 };
 
-function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = false, isFilesPanelOpen = false }) {
+function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = false, isFilesPanelOpen = false, setLatestCodeRef }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const cursorsRef = useRef(new Map());
@@ -66,6 +66,10 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+
+  // Track keyboard height for mobile
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   // Function to get a consistent color for a user
   const getUserColor = useCallback((userId) => {
@@ -318,7 +322,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
           selection.endLineNumber,
           selection.endColumn,
           selection.endLineNumber,
-          selection.endColumn
+          selection.endLineNumber
         ),
         options: {
           className: `remote-cursor-${userId}`,
@@ -628,6 +632,37 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       onRunCode();
     });
     
+    // Apply custom scrollbar styles directly to Monaco editor
+    const styleElement = document.createElement('style');
+    styleElement.id = 'monaco-scrollbar-styles';
+    const isMobile = window.innerWidth < 768;
+    styleElement.textContent = `
+      .monaco-editor .scrollbar.vertical,
+      .monaco-editor .scrollbar.horizontal {
+        width: ${isMobile ? '6px' : '12px'} !important;
+        height: ${isMobile ? '6px' : '12px'} !important;
+        transition: background-color 0.2s ease-in-out;
+      }
+      
+      .monaco-editor .scrollbar .slider {
+        width: ${isMobile ? '6px' : '12px'} !important;
+        height: ${isMobile ? '6px' : '12px'} !important;
+        background: rgba(156, 163, 175, 0.4) !important;
+        border-radius: 10px !important;
+        transition: background-color 0.2s ease-in-out, width 0.2s ease-in-out, height 0.2s ease-in-out;
+      }
+      
+      .dark .monaco-editor .scrollbar .slider {
+        background: rgba(75, 85, 99, 0.5) !important;
+      }
+
+      /* Make editor content slide smoothly */
+      .monaco-editor .monaco-scrollable-element {
+        scroll-behavior: smooth;
+      }
+    `;
+    document.head.appendChild(styleElement);
+    
     // Initialize code reference
     codeRef.current = editor.getValue();
     
@@ -879,6 +914,13 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     }
   }, [code]);
 
+  // Update latestCodeRef in parent whenever code changes in CodeEditor
+  useEffect(() => {
+    if (typeof setLatestCodeRef === 'function') {
+      setLatestCodeRef(code);
+    }
+  }, [code, setLatestCodeRef]);
+
   // Force the special characters bar to show on mobile and tablet
   useEffect(() => {
     const checkMobile = () => {
@@ -892,6 +934,25 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     // Re-check on resize
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Update scrollbar size on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (editorRef.current) {
+        const isMobile = window.innerWidth < 768;
+        editorRef.current.updateOptions({
+          scrollbar: {
+            verticalScrollbarSize: isMobile ? 6 : 12,
+            horizontalScrollbarSize: isMobile ? 6 : 12,
+            smoothScrolling: true
+          }
+        });
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Handle insertion of special characters
@@ -957,9 +1018,14 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       scrollbar: {
         vertical: 'visible',
         horizontal: 'visible',
-        verticalScrollbarSize: 14,
-        horizontalScrollbarSize: 14,
-        alwaysConsumeMouseWheel: false
+        verticalScrollbarSize: isMobile ? 6 : 12,
+        horizontalScrollbarSize: isMobile ? 6 : 12,
+        alwaysConsumeMouseWheel: false,
+        useShadows: true,
+        verticalHasArrows: false,
+        horizontalHasArrows: false,
+        scrollByPage: false, // Smoother scrolling
+        smoothScrolling: true, // Enable smooth scrolling
       },
       overviewRulerLanes: 0, // Disable overview ruler on mobile
       renderLineHighlightOnlyWhenFocus: true, // Better for mobile performance
@@ -1111,6 +1177,106 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
     }
   };
 
+  // Handle keyboard visibility on mobile devices
+  useEffect(() => {
+    // Only run on mobile devices
+    if (window.innerWidth >= 768) return;
+
+    // Function to detect keyboard visibility
+    const detectKeyboard = () => {
+      // Get the visible viewport height
+      const visibleHeight = window.innerHeight;
+      
+      // Get the full screen height
+      const fullScreenHeight = window.screen.height;
+      
+      // Calculate keyboard height by comparing viewport size changes
+      const isKeyboardVisible = visibleHeight < fullScreenHeight * 0.8;
+      
+      if (isKeyboardVisible) {
+        // Approximate keyboard height (can vary by device/browser)
+        const estimatedKeyboardHeight = fullScreenHeight - visibleHeight;
+        setKeyboardHeight(estimatedKeyboardHeight);
+        setIsKeyboardOpen(true);
+      } else {
+        setKeyboardHeight(0);
+        setIsKeyboardOpen(false);
+      }
+    };
+
+    // iOS and Safari-specific keyboard detection
+    const handleVisibilityChangeIOS = () => {
+      // A small delay to let the viewport adjust
+      setTimeout(detectKeyboard, 100);
+    };
+
+    // For Android, resize event works better
+    const handleResize = debounce(() => {
+      detectKeyboard();
+    }, 100);
+
+    // Create a focus event handler for better keyboard detection
+    const handleFocus = () => {
+      // iOS often needs more time to fully show the keyboard
+      setTimeout(detectKeyboard, 300);
+    };
+
+    // Initial detection
+    detectKeyboard();
+
+    // Add various event listeners to catch keyboard events across browsers
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('focusin', handleFocus);
+    window.addEventListener('orientationchange', handleVisibilityChangeIOS);
+    
+    // iOS specific events
+    document.addEventListener('visibilitychange', handleVisibilityChangeIOS);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('focusin', handleFocus);
+      window.removeEventListener('orientationchange', handleVisibilityChangeIOS);
+      document.removeEventListener('visibilitychange', handleVisibilityChangeIOS);
+    };
+  }, []);
+
+  // Update editor padding when keyboard appears
+  useEffect(() => {
+    if (!editorRef.current) return;
+    
+    // Add extra bottom padding when keyboard is open to ensure code is visible
+    const bottomPadding = isKeyboardOpen ? Math.min(80, keyboardHeight / 2) : (showCharsBar ? 40 : 10);
+    
+    editorRef.current.updateOptions({
+      padding: {
+        top: 10,
+        bottom: bottomPadding
+      }
+    });
+  }, [isKeyboardOpen, keyboardHeight, showCharsBar]);
+
+  // Enhance focus handling for mobile - scroll to cursor position when keyboard opens
+  useEffect(() => {
+    if (!editorRef.current || !isKeyboardOpen) return;
+
+    // Wait a short time for keyboard to fully open
+    const timer = setTimeout(() => {
+      try {
+        // Get current cursor position
+        const position = editorRef.current.getPosition();
+        if (position) {
+          // Reveal that position in the editor, with smooth scrolling
+          editorRef.current.revealPositionInCenter(position, true);
+        }
+      } catch (error) {
+        console.error("Error scrolling to cursor position:", error);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [isKeyboardOpen]);
+
   return (
     <div className={`h-full flex flex-col relative ${isFullscreen ? 'fullscreen' : ''}`}>
       {/* Fullscreen toggle button */}
@@ -1163,7 +1329,7 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
           onMount={handleEditorDidMount}
           theme={theme === 'dark' ? 'customDark' : 'light'}
           options={getEditorOptions()}
-          className="editor-container"
+          className="editor-container monaco-editor custom-monaco-scrollbar smooth-scroll"
           loading={<div className="flex items-center justify-center h-full text-gray-500">Loading editor...</div>}
           beforeMount={() => {}}
           onValidate={() => {}} // Add empty validator to suppress unnecessary warnings
@@ -1191,7 +1357,14 @@ function CodeEditor({ code, setCode, language, theme, onRunCode, readOnly = fals
       
       {/* Special characters bar (only show if not read-only and files panel is not open) */}
       {showCharsBar && !readOnly && !isFilesPanelOpen && (
-        <div className="fixed bottom-0 left-0 right-0 z-50" style={{display: 'block !important'}}>
+        <div 
+          className="fixed left-0 right-0 z-50" 
+          style={{
+            display: 'block !important',
+            bottom: isKeyboardOpen ? `${keyboardHeight}px` : 0,
+            transition: 'bottom 0.3s ease-in-out'
+          }}
+        >
           <SpecialCharactersBar 
             onInsert={handleSpecialCharInsert} 
             language={language}
